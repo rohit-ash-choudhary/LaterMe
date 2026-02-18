@@ -14,7 +14,17 @@ const Login = ({ onLogin, user }) => {
   useEffect(() => {
     // Check localStorage as well in case user prop hasn't updated yet
     const storedUser = localStorage.getItem('laterme_user')
-    if (user || storedUser) {
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        // Only redirect if email is verified
+        if (userData?.emailVerified === true) {
+          navigate('/')
+        }
+      } catch (e) {
+        // Invalid stored user, continue with login
+      }
+    } else if (user?.emailVerified === true) {
       navigate('/')
     }
   }, [user, navigate])

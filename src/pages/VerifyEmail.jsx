@@ -156,13 +156,20 @@ const VerifyEmail = ({ onLogin }) => {
   }
 
   const handleBack = () => {
-    // Go back to signup page or home if no history
-    if (window.history.length > 1) {
-      navigate(-1)
-    } else {
-      navigate('/signup')
-    }
+    // Always go back to signup page (where user came from)
+    navigate('/signup', { replace: true })
   }
+
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = () => {
+      // When browser back button is pressed, go to signup
+      navigate('/signup', { replace: true })
+    }
+    
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [navigate])
 
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">

@@ -24,7 +24,7 @@ const PublicLetters = ({ user }) => {
     try {
       const lettersData = await publicLettersAPI.getAll(filter, searchQuery)
       // Transform backend response to match frontend format
-      const transformedLetters = lettersData.map(letter => ({
+      const transformedLetters = (lettersData || []).map(letter => ({
         id: letter.id || letter.letterId,
         letterId: letter.letterId || letter.id,
         author: letter.authorName || 'Anonymous',
@@ -189,21 +189,8 @@ const PublicLetters = ({ user }) => {
         if (!matchesSearch) return false
       }
       
-      // Filter by delivery date - only show letters where delivery date has passed
-      // For date-based letters, check if deliveryDate has passed
-      if (letter.deliveryType === 'date' && letter.deliveryDate) {
-        const deliveryDate = new Date(letter.deliveryDate)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        deliveryDate.setHours(0, 0, 0, 0)
-        if (deliveryDate > today) {
-          return false // Don't show letters with future delivery dates
-        }
-      }
-      
-      // For Open-When letters, they can be shown immediately (user decides when to open)
-      // For letters without deliveryType (old mock data), show them
-      
+      // Show all letters - backend handles filtering
+      // Public letters are meant to be shared, so show all available
       return true
     })
     .sort((a, b) => {
