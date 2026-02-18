@@ -6,7 +6,7 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
           <div className="text-sm text-gray-600">
-            © 2024 FUTUROO. All rights reserved.
+            © 2024 LaterMe. All rights reserved.
           </div>
           <nav className="flex items-center space-x-6">
             <Link to="/about" className="text-sm text-gray-600 hover:text-primary transition-colors">

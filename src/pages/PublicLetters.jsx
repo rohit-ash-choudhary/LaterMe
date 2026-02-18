@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Heart, MessageCircle, Share2, Bookmark, TrendingUp, Clock, Star, Search, Sparkles, Leaf, Flame } from 'lucide-react'
 import { format } from 'date-fns'
+import { publicLettersAPI } from '../services/api'
 
 const PublicLetters = ({ user }) => {
   const [letters, setLetters] = useState([])
@@ -15,66 +16,68 @@ const PublicLetters = ({ user }) => {
   ]
 
   useEffect(() => {
-    // Load mock public letters
-    const mockLetters = [
-      {
-        id: 1,
-        author: 'Ashhh Saharan',
-        title: 'Letter to my 2030 self',
-        content: 'Dear Future Me, I hope you are doing well. I am writing this in 2024, and I want to remind you of the dreams we had. Remember to stay true to yourself and never give up on what matters most.',
-        likes: 120,
-        comments: 24,
-        createdAt: new Date('2024-01-15').toISOString(),
-        isLiked: false,
-        isSaved: false,
-        silentReactions: { felt: 45, helped: 32, alone: 28 },
-        userReactions: [],
-      },
-      {
-        id: 2,
-        author: 'John Doe',
-        title: 'Reflections on Growth',
-        content: 'Looking back at this moment, I want to remember how far I\'ve come. The challenges we faced made us stronger, and I hope you\'re still pushing forward.',
-        likes: 89,
-        comments: 12,
-        createdAt: new Date('2024-01-20').toISOString(),
-        isLiked: true,
-        isSaved: false,
-        silentReactions: { felt: 23, helped: 18, alone: 15 },
-        userReactions: ['felt'],
-      },
-      {
-        id: 3,
-        author: 'Jane Smith',
-        title: 'A Message of Hope',
-        content: 'To my future self: Keep believing in yourself. The journey ahead might be uncertain, but you have the strength to overcome anything.',
-        likes: 156,
-        comments: 31,
-        createdAt: new Date('2024-01-18').toISOString(),
-        isLiked: false,
-        isSaved: true,
-        silentReactions: { felt: 67, helped: 54, alone: 42 },
-        userReactions: ['helped'],
-      },
-    ]
-    
-    // Load public letters from localStorage (letters marked as public)
-    const publicLetters = JSON.parse(localStorage.getItem('futuroo_public') || '[]')
-    
-    // Merge mock letters with user-created public letters
-    // Remove duplicates and sort by date
-    const allLetters = [...mockLetters, ...publicLetters]
-      .filter((letter, index, self) => 
-        index === self.findIndex(l => l.id === letter.id)
-      )
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    
-    setLetters(allLetters)
+    loadPublicLetters()
+    loadSavedLetters()
+  }, [filter, searchQuery])
 
-    // Load saved letters
-    const saved = JSON.parse(localStorage.getItem('futuroo_saved') || '[]')
-    setSavedLetters(saved)
-  }, [])
+  const loadPublicLetters = async () => {
+    try {
+      const lettersData = await publicLettersAPI.getAll(filter, searchQuery)
+      // Transform backend response to match frontend format
+      const transformedLetters = lettersData.map(letter => ({
+        id: letter.id || letter.letterId,
+        letterId: letter.letterId || letter.id,
+        author: letter.authorName || 'Anonymous',
+        title: letter.title || 'Untitled',
+        content: letter.content || '',
+        likes: letter.likesCount || 0,
+        comments: 0, // TODO: Add comments count when implemented
+        createdAt: letter.createdAt,
+        isLiked: letter.isLiked || false,
+        isSaved: letter.isSaved || false,
+        mood: letter.mood,
+        identity: letter.identity,
+        deliveryType: letter.deliveryType,
+        deliveryDate: letter.deliveryDate,
+        openWhenTrigger: letter.openWhenTrigger,
+        silentReactions: { felt: 0, helped: 0, alone: 0 }, // TODO: Add reactions when implemented
+        userReactions: [],
+      }))
+      setLetters(transformedLetters)
+    } catch (error) {
+      console.error('Error loading public letters:', error)
+      setLetters([])
+    }
+  }
+
+  const loadSavedLetters = async () => {
+    if (!user) {
+      setSavedLetters([])
+      return
+    }
+    
+    try {
+      const savedData = await publicLettersAPI.getSaved()
+      // Transform backend response
+      const transformedSaved = (savedData || []).map(letter => ({
+        id: letter.id || letter.letterId,
+        letterId: letter.letterId || letter.id,
+        author: letter.authorName || 'Anonymous',
+        title: letter.title || 'Untitled',
+        content: letter.content || '',
+        likes: letter.likesCount || 0,
+        createdAt: letter.createdAt,
+        isLiked: letter.isLiked || false,
+        isSaved: true,
+        mood: letter.mood,
+        identity: letter.identity,
+      }))
+      setSavedLetters(transformedSaved)
+    } catch (error) {
+      console.error('Error loading saved letters:', error)
+      setSavedLetters([])
+    }
+  }
   
   // Re-filter letters when component updates (to show newly available letters)
   useEffect(() => {
@@ -85,32 +88,49 @@ const PublicLetters = ({ user }) => {
     return () => clearInterval(interval)
   }, [])
 
-  const handleLike = (letterId) => {
+  const handleLike = async (letterId) => {
     if (!user) {
       alert('Please login to like letters')
       return
     }
-    setLetters(letters.map(letter =>
-      letter.id === letterId
-        ? { ...letter, likes: letter.isLiked ? letter.likes - 1 : letter.likes + 1, isLiked: !letter.isLiked }
-        : letter
-    ))
+    
+    try {
+      const letter = letters.find(l => l.id === letterId)
+      if (letter?.isLiked) {
+        await publicLettersAPI.unlike(letterId)
+      } else {
+        await publicLettersAPI.like(letterId)
+      }
+      
+      // Reload letters to get updated like count
+      await loadPublicLetters()
+    } catch (error) {
+      console.error('Error liking letter:', error)
+      alert('Failed to like letter: ' + (error.message || 'Please try again'))
+    }
   }
 
-  const handleSave = (letterId) => {
+  const handleSave = async (letterId) => {
     if (!user) {
       alert('Please login to save letters')
       return
     }
-    const letter = letters.find(l => l.id === letterId)
-    const updatedSaved = letter.isSaved
-      ? savedLetters.filter(id => id !== letterId)
-      : [...savedLetters, letterId]
-    localStorage.setItem('futuroo_saved', JSON.stringify(updatedSaved))
-    setSavedLetters(updatedSaved)
-    setLetters(letters.map(l =>
-      l.id === letterId ? { ...l, isSaved: !l.isSaved } : l
-    ))
+    
+    try {
+      const letter = letters.find(l => l.id === letterId)
+      if (letter?.isSaved) {
+        await publicLettersAPI.unsave(letterId)
+      } else {
+        await publicLettersAPI.save(letterId)
+      }
+      
+      // Reload letters and saved letters
+      await loadPublicLetters()
+      await loadSavedLetters()
+    } catch (error) {
+      console.error('Error saving letter:', error)
+      alert('Failed to save letter: ' + (error.message || 'Please try again'))
+    }
   }
 
   const handleSilentReaction = (letterId, reactionId) => {

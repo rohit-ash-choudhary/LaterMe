@@ -1,49 +1,68 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Check, Crown, Calendar, Infinity } from 'lucide-react'
-import { PRICING, setUserSubscription } from '../utils/subscription'
+import { useState, useEffect } from 'react'
+import { Check, Crown, Calendar, Infinity, Clock, CreditCard } from 'lucide-react'
+import { PRICING } from '../utils/subscription'
+import { detectUserCountry, getPaymentGateway, getPaymentGatewayInfo } from '../utils/paymentGateway'
 
 const Pricing = ({ user, onSubscriptionUpdate }) => {
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const [paymentGateway, setPaymentGateway] = useState(null)
+  const [countryCode, setCountryCode] = useState(null)
+  const [detecting, setDetecting] = useState(true)
 
-  const handleSubscribe = async (plan) => {
-    if (!user) {
-      alert('Please login to subscribe')
-      navigate('/login')
-      return
+  useEffect(() => {
+    // Detect user's country and set payment gateway
+    const detectGateway = async () => {
+      try {
+        const country = await detectUserCountry()
+        setCountryCode(country)
+        const gateway = getPaymentGateway(country)
+        setPaymentGateway(gateway)
+      } catch (error) {
+        console.error('Error detecting payment gateway:', error)
+        // Default to PayPal if detection fails
+        setPaymentGateway('paypal')
+      } finally {
+        setDetecting(false)
+      }
     }
+    
+    detectGateway()
+  }, [])
 
-    setLoading(true)
-
-    // Simulate payment processing
-    setTimeout(() => {
-      // In a real app, this would process payment via Stripe/PayPal/etc
-      setUserSubscription(user.id, plan)
-      
-      // Update user subscription status
-      if (onSubscriptionUpdate) {
-        onSubscriptionUpdate()
-      }
-      
-      setLoading(false)
-      const planNames = {
-        monthly: 'Monthly',
-        yearly: 'Yearly',
-        lifetime: 'Lifetime'
-      }
-      alert(`Successfully subscribed to ${planNames[plan] || plan} plan!`)
-      navigate('/write-later')
-    }, 1500)
-  }
+  const gatewayInfo = paymentGateway ? getPaymentGatewayInfo(paymentGateway) : null
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-        <p className="text-xl text-gray-600">
+        <p className="text-xl text-gray-600 mb-6">
           Unlock unlimited letters and premium features
         </p>
+        
+        {/* Coming Soon Banner */}
+        <div className="max-w-2xl mx-auto mb-8 modern-card rounded-2xl p-6 bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border-2 border-primary/20">
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <Clock className="text-primary" size={32} />
+            <h2 className="text-2xl font-bold text-gray-800">Payment System Coming Soon!</h2>
+          </div>
+          <p className="text-gray-700 mb-4">
+            We're working hard to bring you secure payment options. Premium subscriptions will be available soon.
+          </p>
+          {detecting ? (
+            <div className="flex items-center justify-center space-x-2 text-gray-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span className="text-sm">Detecting your location...</span>
+            </div>
+          ) : gatewayInfo && (
+            <div className="flex items-center justify-center space-x-3 bg-white/50 rounded-lg p-3">
+              <CreditCard className="text-primary" size={20} />
+              <span className="text-sm text-gray-700">
+                <strong>Payment Gateway:</strong> <span className="text-primary font-semibold">{gatewayInfo.name}</span>
+                {countryCode === 'IN' && ' (India)'}
+                {countryCode !== 'IN' && countryCode && ` (${countryCode})`}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -77,11 +96,11 @@ const Pricing = ({ user, onSubscriptionUpdate }) => {
           </ul>
 
           <button
-            onClick={() => handleSubscribe('monthly')}
-            disabled={loading}
-            className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium disabled:opacity-50 text-sm"
+            disabled
+            className="w-full px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed font-medium text-sm flex items-center justify-center space-x-2"
           >
-            {loading ? 'Processing...' : 'Subscribe Monthly'}
+            <Clock size={16} />
+            <span>Coming Soon</span>
           </button>
         </div>
 
@@ -126,11 +145,11 @@ const Pricing = ({ user, onSubscriptionUpdate }) => {
           </ul>
 
           <button
-            onClick={() => handleSubscribe('yearly')}
-            disabled={loading}
-            className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium disabled:opacity-50 text-sm"
+            disabled
+            className="w-full px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed font-medium text-sm flex items-center justify-center space-x-2"
           >
-            {loading ? 'Processing...' : 'Subscribe Yearly'}
+            <Clock size={16} />
+            <span>Coming Soon</span>
           </button>
         </div>
 
@@ -170,25 +189,27 @@ const Pricing = ({ user, onSubscriptionUpdate }) => {
           </ul>
 
           <button
-            onClick={() => handleSubscribe('lifetime')}
-            disabled={loading}
-            className="w-full px-4 py-2 bg-white text-primary rounded-lg hover:bg-gray-100 transition-colors font-medium disabled:opacity-50 text-sm"
+            disabled
+            className="w-full px-4 py-2 bg-white/50 text-gray-600 rounded-lg cursor-not-allowed font-medium text-sm flex items-center justify-center space-x-2"
           >
-            {loading ? 'Processing...' : 'Get Lifetime Access'}
+            <Clock size={16} />
+            <span>Coming Soon</span>
           </button>
         </div>
       </div>
 
       <div className="mt-12 text-center">
         <p className="text-gray-600 mb-4">
-          Free plan includes 10 letters. Upgrade for unlimited access.
+          Free plan includes 10 letters. Premium subscriptions coming soon!
         </p>
-        <button
-          onClick={() => navigate('/')}
-          className="text-primary hover:underline"
-        >
-          Back to Home
-        </button>
+        {gatewayInfo && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg inline-block">
+            <p className="text-sm text-gray-600">
+              <strong>Payment Method:</strong> {gatewayInfo.name} will be available for your region
+            </p>
+            <p className="text-xs text-gray-500 mt-1">{gatewayInfo.description}</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -2,15 +2,17 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
+import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import WriteLater from './pages/WriteLater'
 import PublicLetters from './pages/PublicLetters'
 import InstantLetter from './pages/InstantLetter'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import VerifyEmail from './pages/VerifyEmail'
 import Pricing from './pages/Pricing'
 import ManageAccount from './pages/ManageAccount'
-import { getUserSubscription, isSubscriptionActive } from './utils/subscription'
+// Subscription utilities removed - will be handled by backend API
 
 function App() {
   const [user, setUser] = useState(null)
@@ -18,39 +20,42 @@ function App() {
 
   useEffect(() => {
     // Check for stored user session
-    const storedUser = localStorage.getItem('futuroo_user')
+    const storedUser = localStorage.getItem('laterme_user')
     if (storedUser) {
-      const userData = JSON.parse(storedUser)
-      setUser(userData)
-      // Load subscription status
-      if (userData?.id) {
-        const sub = getUserSubscription(userData.id)
-        setSubscription(sub)
+      try {
+        const userData = JSON.parse(storedUser)
+        
+        // Only set user if email is verified
+        // Unverified users will be handled by ProtectedRoute or individual page checks
+        if (userData?.emailVerified === true) {
+          setUser(userData)
+          // Subscription removed - will be handled by backend API in the future
+          setSubscription(null)
+        }
+        // If not verified, don't set user state (they'll be redirected by ProtectedRoute)
+      } catch (e) {
+        console.error('Error parsing user data:', e)
+        localStorage.removeItem('laterme_user')
       }
     }
   }, [])
 
   const handleLogin = (userData) => {
     setUser(userData)
-    localStorage.setItem('futuroo_user', JSON.stringify(userData))
-    // Load subscription status
-    if (userData?.id) {
-      const sub = getUserSubscription(userData.id)
-      setSubscription(sub)
-    }
+    localStorage.setItem('laterme_user', JSON.stringify(userData))
+    // Subscription removed - will be handled by backend API in the future
+    setSubscription(null)
   }
 
   const handleLogout = () => {
     setUser(null)
     setSubscription(null)
-    localStorage.removeItem('futuroo_user')
+    localStorage.removeItem('laterme_user')
   }
 
   const handleSubscriptionUpdate = () => {
-    if (user?.id) {
-      const sub = getUserSubscription(user.id)
-      setSubscription(sub)
-    }
+    // Subscription removed - will be handled by backend API in the future
+    setSubscription(null)
   }
 
   return (
@@ -60,13 +65,26 @@ function App() {
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/write-later" element={<WriteLater user={user} subscription={subscription} />} />
+            <Route path="/write-later" element={
+              <ProtectedRoute user={user}>
+                <WriteLater user={user} subscription={subscription} />
+              </ProtectedRoute>
+            } />
             <Route path="/public-letters" element={<PublicLetters user={user} />} />
-            <Route path="/write-to-someone" element={<InstantLetter user={user} subscription={subscription} />} />
-            <Route path="/login" element={<Login onLogin={handleLogin} />} />
-            <Route path="/signup" element={<Signup onLogin={handleLogin} />} />
+            <Route path="/write-to-someone" element={
+              <ProtectedRoute user={user}>
+                <InstantLetter user={user} subscription={subscription} />
+              </ProtectedRoute>
+            } />
+            <Route path="/login" element={<Login onLogin={handleLogin} user={user} />} />
+            <Route path="/signup" element={<Signup onLogin={handleLogin} user={user} />} />
+            <Route path="/verify-email" element={<VerifyEmail onLogin={handleLogin} />} />
             <Route path="/pricing" element={<Pricing user={user} onSubscriptionUpdate={handleSubscriptionUpdate} />} />
-            <Route path="/manage-account" element={<ManageAccount user={user} onLogout={handleLogout} onSubscriptionUpdate={handleSubscriptionUpdate} />} />
+            <Route path="/manage-account" element={
+              <ProtectedRoute user={user}>
+                <ManageAccount user={user} onLogout={handleLogout} onSubscriptionUpdate={handleSubscriptionUpdate} />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
         <Footer />

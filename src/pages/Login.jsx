@@ -1,37 +1,85 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, LogIn } from 'lucide-react'
+import { authAPI } from '../services/api'
 
-const Login = ({ onLogin }) => {
+const Login = ({ onLogin, user }) => {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    // Check localStorage as well in case user prop hasn't updated yet
+    const storedUser = localStorage.getItem('laterme_user')
+    if (user || storedUser) {
+      navigate('/')
+    }
+  }, [user, navigate])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     // Simple validation
     if (!email || !password) {
       setError('Please fill in all fields')
+      setLoading(false)
       return
     }
 
-    // Mock login (in a real app, this would call an API)
-    const users = JSON.parse(localStorage.getItem('futuroo_users') || '[]')
-    const user = users.find(u => u.email === email && u.password === password)
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
 
-    if (user) {
+    try {
+      // Call backend API to login
+      // Note: Backend expects 'passHash' field name (not 'password')
+      const response = await authAPI.login({
+        email,
+        passHash: password  // Backend expects 'passHash' instead of 'password'
+      })
+      
+      // Backend returns LoginResponceDTO directly: { id, name, email }
+      // NOT wrapped in {user: {...}, token: ...}
+      // Backend only returns this if email is verified (checked in backend)
       const userData = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+        id: response.id,
+        name: response.name,
+        email: response.email,
+        token: response.token, // JWT token from backend
+        refreshToken: response.refreshToken, // Refresh token from backend
+        emailVerified: response.emailVerified !== undefined ? response.emailVerified : true
       }
+      
+      // Store user data in localStorage
+      localStorage.setItem('laterme_user', JSON.stringify(userData))
+      
+      // Auto login
       onLogin(userData)
       navigate('/')
-    } else {
-      setError('Invalid email or password')
+    } catch (error) {
+      // Handle API errors
+      console.error('Login error:', error)
+      if (error.message.includes('Cannot connect to backend') || error.message.includes('Failed to fetch')) {
+        const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+        setError(`Cannot connect to backend server at ${backendUrl}. The service may be sleeping (free tier) or unavailable. Please try again.`)
+      } else if (error.message.includes('Invalid emails') || error.message.includes('email not register') || error.message.includes('Pass is invalid')) {
+        setError('Invalid email or password')
+      } else if (error.message.includes('INVALID_CREDENTIALS')) {
+        setError('Invalid email or password')
+      } else {
+        setError(error.message || 'Login failed. Please try again.')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -52,7 +100,7 @@ const Login = ({ onLogin }) => {
         <div className="modern-card rounded-2xl p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your FUTUROO account</p>
+            <p className="text-gray-600">Sign in to your LaterMe account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -98,10 +146,11 @@ const Login = ({ onLogin }) => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
+              disabled={loading}
+              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <LogIn size={20} />
-              <span>Login</span>
+              <span>{loading ? 'Logging in...' : 'Login'}</span>
             </button>
           </form>
 

@@ -1,16 +1,16 @@
 // API Service Layer - All API calls go through here
-import { apiRequest } from '../config/api'
+import { apiRequest, getUserId } from '../config/api'
 
 // Authentication APIs
 export const authAPI = {
   register: (userData) => 
-    apiRequest('/auth/register', {
+    apiRequest('/v1/auth/register', {
       method: 'POST',
       body: userData,
     }),
   
   login: (credentials) =>
-    apiRequest('/auth/login', {
+    apiRequest('/v1/auth/login', {
       method: 'POST',
       body: credentials,
     }),
@@ -24,110 +24,276 @@ export const authAPI = {
   getCurrentUser: () =>
     apiRequest('/auth/me'),
   
-  updateEmail: (email) =>
-    apiRequest('/auth/email', {
-      method: 'PUT',
-      body: { email },
-    }),
-  
   changePassword: (passwords) =>
-    apiRequest('/auth/password', {
-      method: 'PUT',
+    apiRequest('/v1/auth/password', {
+      method: 'POST',
       body: passwords,
     }),
   
   deleteAccount: () =>
-    apiRequest('/auth/account', {
+    apiRequest('/v1/auth/account', {
       method: 'DELETE',
     }),
+
+  verifyEmail: (userId, otpCode) => {
+    return apiRequest('/v1/auth/verify-email', {
+      method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
+      body: { otpCode },
+    })
+  },
+
+  resendOtp: (userId) => {
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/v1/auth/resend-otp', {
+      method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
 }
 
-// Letters APIs
+// Letters APIs (Write Later - Future Letters)
 export const lettersAPI = {
-  getAll: (type = 'drafts', page = 1, limit = 20) =>
-    apiRequest(`/letters?type=${type}&page=${page}&limit=${limit}`),
+  getAll: (type = 'drafts') => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/letters?type=${type}`, {
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
   
-  getById: (letterId) =>
-    apiRequest(`/letters/${letterId}`),
+  getById: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/letters/${letterId}`, {
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
   
-  createDraft: (draftData) =>
-    apiRequest('/letters/drafts', {
+  createDraft: (draftData) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/letters/drafts', {
       method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
       body: draftData,
-    }),
+    })
+  },
   
-  updateDraft: (draftId, draftData) =>
-    apiRequest(`/letters/drafts/${draftId}`, {
+  updateDraft: (draftId, draftData) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/letters/drafts/${draftId}`, {
       method: 'PUT',
+      headers: {
+        'userId': userId.toString(),
+      },
       body: draftData,
-    }),
+    })
+  },
   
-  deleteDraft: (draftId) =>
-    apiRequest(`/letters/drafts/${draftId}`, {
+  deleteDraft: (draftId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/letters/drafts/${draftId}`, {
       method: 'DELETE',
-    }),
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
   
-  schedule: (letterData) =>
-    apiRequest('/letters/schedule', {
+  schedule: (letterData) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/letters/schedule', {
       method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
       body: letterData,
-    }),
+    })
+  },
   
-  open: (letterId) =>
-    apiRequest(`/letters/${letterId}/open`, {
+  open: (letterId, currentMood = null) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    const body = currentMood ? { currentMood } : {}
+    return apiRequest(`/letters/${letterId}/open`, {
       method: 'POST',
-    }),
+      headers: {
+        'userId': userId.toString(),
+      },
+      body: Object.keys(body).length > 0 ? body : undefined,
+    })
+  },
   
-  markOpened: (letterId) =>
-    apiRequest(`/letters/${letterId}/opened`, {
+  markOpened: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/letters/${letterId}/opened`, {
       method: 'PUT',
-    }),
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
 }
 
 // Public Letters APIs
 export const publicLettersAPI = {
-  getAll: (filter = 'latest', search = '', page = 1) =>
-    apiRequest(`/public-letters?filter=${filter}&search=${encodeURIComponent(search)}&page=${page}`),
+  getAll: (filter = 'latest', search = '') => {
+    const userId = getUserId()
+    const headers = userId ? { 'userId': userId.toString() } : {}
+    return apiRequest(`/public-letters?filter=${filter}&search=${encodeURIComponent(search)}`, {
+      headers,
+    }).then(response => response.letters || [])
+  },
   
-  getById: (letterId) =>
-    apiRequest(`/public-letters/${letterId}`),
+  getById: (letterId) => {
+    const userId = getUserId()
+    return apiRequest(`/public-letters/${letterId}`, {
+      headers: userId ? { 'userId': userId.toString() } : {},
+    })
+  },
   
-  like: (letterId) =>
-    apiRequest(`/public-letters/${letterId}/like`, {
+  like: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/public-letters/${letterId}/like`, {
       method: 'POST',
-    }),
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
   
-  save: (letterId) =>
-    apiRequest(`/public-letters/${letterId}/save`, {
-      method: 'POST',
-    }),
-  
-  addReaction: (letterId, reaction) =>
-    apiRequest(`/public-letters/${letterId}/reactions`, {
-      method: 'POST',
-      body: { reaction },
-    }),
-  
-  removeReaction: (letterId, reactionId) =>
-    apiRequest(`/public-letters/${letterId}/reactions/${reactionId}`, {
+  unlike: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/public-letters/${letterId}/like`, {
       method: 'DELETE',
-    }),
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
   
-  getSaved: () =>
-    apiRequest('/public-letters/saved'),
+  save: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/public-letters/${letterId}/save`, {
+      method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
+  
+  unsave: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/public-letters/${letterId}/save`, {
+      method: 'DELETE',
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
+  
+  getSaved: () => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/public-letters/saved', {
+      headers: {
+        'userId': userId.toString(),
+      },
+    }).then(response => response.letters || [])
+  },
 }
 
-// Instant Letters APIs
-export const instantLettersAPI = {
-  send: (letterData) =>
-    apiRequest('/instant-letters', {
+// Letters to Someone Else APIs (Write Letter to Someone Else)
+export const lettersToSomeoneElseAPI = {
+  send: (letterData) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/letters-to-someone-else', {
       method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
       body: letterData,
-    }),
+    })
+  },
   
-  getAll: (type = 'sent', page = 1) =>
-    apiRequest(`/instant-letters?type=${type}&page=${page}`),
+  getAll: () => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/letters-to-someone-else', {
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
+  
+  retry: (letterId) => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest(`/letters-to-someone-else/${letterId}/retry`, {
+      method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
 }
+
+// Keep old name for backward compatibility
+export const instantLettersAPI = lettersToSomeoneElseAPI
 
 // Subscription APIs
 export const subscriptionAPI = {

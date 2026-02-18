@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Mail, Lock, Crown, Calendar, X, Save, Eye, EyeOff } from 'lucide-react'
+import { Lock, Crown, Calendar, X, Eye, EyeOff } from 'lucide-react'
 import { getUserSubscription, isSubscriptionActive } from '../utils/subscription'
+import { authAPI } from '../services/api'
 
 const ManageAccount = ({ user, onLogout, onSubscriptionUpdate }) => {
   const navigate = useNavigate()
@@ -9,7 +10,6 @@ const ManageAccount = ({ user, onLogout, onSubscriptionUpdate }) => {
   const [loading, setLoading] = useState(false)
   
   // Form states
-  const [email, setEmail] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -23,13 +23,15 @@ const ManageAccount = ({ user, onLogout, onSubscriptionUpdate }) => {
       navigate('/login')
       return
     }
-
-    // Load user data
-    const userData = JSON.parse(localStorage.getItem('futuroo_users') || '[]')
-    const currentUser = userData.find(u => u.id === user.id)
     
-    if (currentUser) {
-      setEmail(currentUser.email || '')
+    // Check if email is verified
+    if (user.emailVerified === false || user.emailVerified === undefined) {
+      navigate('/verify-email', { 
+        state: { 
+          userData: user 
+        } 
+      })
+      return
     }
 
     // Load subscription
@@ -37,62 +39,70 @@ const ManageAccount = ({ user, onLogout, onSubscriptionUpdate }) => {
     setSubscription(sub)
   }, [user, navigate])
 
-  const handleUpdateEmail = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setMessage({ type: '', text: '' })
-
-    // Simulate API call
-    setTimeout(() => {
-      const users = JSON.parse(localStorage.getItem('futuroo_users') || '[]')
-      const updatedUsers = users.map(u => 
-        u.id === user.id ? { ...u, email } : u
-      )
-      localStorage.setItem('futuroo_users', JSON.stringify(updatedUsers))
-      
-      setLoading(false)
-      setMessage({ type: 'success', text: 'Email updated successfully!' })
-    }, 1000)
-  }
-
   const handleChangePassword = async (e) => {
     e.preventDefault()
     setMessage({ type: '', text: '' })
 
+    // Frontend validation: Check new password matches confirm password
     if (newPassword !== confirmPassword) {
       setMessage({ type: 'error', text: 'New passwords do not match' })
       return
     }
 
+    // Frontend validation: Check new password is different from current
+    if (currentPassword === newPassword) {
+      setMessage({ type: 'error', text: 'New password must be different from current password' })
+      return
+    }
+
+    // Frontend validation: Check password length
     if (newPassword.length < 6) {
       setMessage({ type: 'error', text: 'Password must be at least 6 characters' })
       return
     }
 
+    if (!currentPassword) {
+      setMessage({ type: 'error', text: 'Please enter your current password' })
+      return
+    }
+
+    if (!user || !user.email) {
+      setMessage({ type: 'error', text: 'User information not available. Please login again.' })
+      return
+    }
+
     setLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      const users = JSON.parse(localStorage.getItem('futuroo_users') || '[]')
-      const currentUser = users.find(u => u.id === user.id)
+    try {
+      // Call backend API to change password
+      // Backend expects: { email, currentPassword, newPassword }
+      await authAPI.changePassword({
+        email: user.email,              // Send user email to identify user
+        currentPassword: currentPassword, // Old password for verification
+        newPassword: newPassword         // New password (confirmPassword is NOT sent - only for frontend validation)
+      })
       
-      // In a real app, verify current password
-      if (currentUser) {
-        const updatedUsers = users.map(u => 
-          u.id === user.id ? { ...u, password: newPassword } : u
-        )
-        localStorage.setItem('futuroo_users', JSON.stringify(updatedUsers))
-        
-        setLoading(false)
-        setMessage({ type: 'success', text: 'Password changed successfully!' })
-        setCurrentPassword('')
-        setNewPassword('')
-        setConfirmPassword('')
+      setLoading(false)
+      setMessage({ type: 'success', text: 'Password changed successfully!' })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (error) {
+      console.error('Password change error:', error)
+      setLoading(false)
+      if (error.message.includes('Cannot connect to backend') || error.message.includes('Failed to fetch')) {
+        const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+        setMessage({ type: 'error', text: `Cannot connect to backend server at ${backendUrl}. The service may be sleeping (free tier) or unavailable. Please try again.` })
+      } else if (error.message.includes('Current password is incorrect') || error.message.includes('Pass is invalid')) {
+        setMessage({ type: 'error', text: 'Current password is incorrect' })
+      } else if (error.message.includes('Invalid emails') || error.message.includes('email not register') || error.message.includes('User not found')) {
+        setMessage({ type: 'error', text: 'User not found. Please login again.' })
+      } else if (error.message.includes('must be different')) {
+        setMessage({ type: 'error', text: 'New password must be different from current password' })
       } else {
-        setLoading(false)
-        setMessage({ type: 'error', text: 'User not found' })
+        setMessage({ type: 'error', text: error.message || 'Failed to change password. Please try again.' })
       }
-    }, 1000)
+    }
   }
 
   const handleCancelSubscription = () => {
@@ -125,46 +135,6 @@ const ManageAccount = ({ user, onLogout, onSubscriptionUpdate }) => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Manage Account</h1>
         <p className="text-gray-600">Update your account settings and preferences</p>
-      </div>
-
-      {/* Account Information */}
-      <div className="modern-card rounded-2xl p-6 mb-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-            <User className="text-primary" size={24} />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold">{user?.name || 'User'}</h2>
-            <p className="text-sm text-gray-500">Account Information</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleUpdateEmail} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl modern-input focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
-                required
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center space-x-2 px-6 py-3 btn-modern text-white rounded-xl font-medium disabled:opacity-50 transition-all"
-          >
-            <Save size={18} />
-            <span>{loading ? 'Updating...' : 'Update Email'}</span>
-          </button>
-        </form>
       </div>
 
       {/* Subscription Status */}

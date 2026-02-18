@@ -26,7 +26,7 @@ const Header = ({ user, subscription, onLogout }) => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="text-3xl font-extrabold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
-              FUTUROO
+              LaterMe
             </div>
             <span className="hidden sm:inline text-sm text-gray-600 font-medium">
               Messages for Who You'll Be

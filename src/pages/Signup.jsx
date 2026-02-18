@@ -1,56 +1,101 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, User, UserPlus } from 'lucide-react'
+import { authAPI } from '../services/api'
 
-const Signup = ({ onLogin }) => {
+const Signup = ({ onLogin, user }) => {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    // Check localStorage as well in case user prop hasn't updated yet
+    const storedUser = localStorage.getItem('laterme_user')
+    if (user || storedUser) {
+      navigate('/')
+    }
+  }, [user, navigate])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     // Simple validation
     if (!name || !email || !password) {
       setError('Please fill in all fields')
+      setLoading(false)
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
+      setLoading(false)
       return
     }
 
-    // Save user (in a real app, this would call an API)
-    const users = JSON.parse(localStorage.getItem('futuroo_users') || '[]')
-    
-    // Check if email already exists
-    if (users.find(u => u.email === email)) {
-      setError('Email already registered')
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address')
+      setLoading(false)
       return
     }
 
-    const newUser = {
-      id: Date.now(),
-      name,
-      email,
-      password, // In a real app, this would be hashed
+    try {
+      // Call backend API to register user
+      // Note: Backend expects 'passHash' field name
+      const response = await authAPI.register({
+        name,
+        email,
+        passHash: password  // Backend expects 'passHash' instead of 'password'
+      })
+      
+      // Backend returns UserResponceDTO directly (not wrapped in {user: {...}, token: ...})
+      // So response is the user object itself
+      const userData = {
+        id: response.id,
+        name: response.name,
+        email: response.email,
+        token: response.token || null, // JWT token (may be null until email verified)
+        refreshToken: null, // Refresh token only after email verification
+        emailVerified: response.emailVerified || false
+      }
+      
+      // Store user data temporarily (not fully logged in until verified)
+      localStorage.setItem('laterme_user', JSON.stringify(userData))
+      
+      // Redirect to OTP verification page
+      navigate('/verify-email', { state: { userData } })
+    } catch (error) {
+      // Handle API errors
+      console.error('Registration error:', error)
+      if (error.message.includes('Cannot connect to backend') || error.message.includes('Failed to fetch')) {
+        const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+        setError(`Cannot connect to backend server at ${backendUrl}. The service may be sleeping (free tier) or unavailable. Please try again.`)
+      } else if (error.message.includes('already exists') || 
+                 error.message.includes('already registered') ||
+                 error.message.includes('User with email') ||
+                 error.message.includes('EMAIL_ALREADY_EXISTS')) {
+        // Extract email from error message if available
+        const emailMatch = error.message.match(/email\s+([^\s]+)\s+already/i)
+        if (emailMatch) {
+          setError(`Email ${emailMatch[1]} is already registered. Please use a different email or try logging in.`)
+        } else {
+          setError('This email is already registered. Please use a different email or try logging in.')
+        }
+      } else if (error.message.includes('VALIDATION_ERROR') || error.message.includes('Validation failed')) {
+        setError('Please check your input and try again')
+      } else {
+        setError(error.message || 'Registration failed. Please try again.')
+      }
+    } finally {
+      setLoading(false)
     }
-
-    users.push(newUser)
-    localStorage.setItem('futuroo_users', JSON.stringify(users))
-
-    // Auto login
-    const userData = {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-    }
-    onLogin(userData)
-    navigate('/')
   }
 
   const handleGoogleSignup = () => {
@@ -70,10 +115,10 @@ const Signup = ({ onLogin }) => {
         <div className="modern-card rounded-2xl p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-            <p className="text-gray-600">Join FUTUROO and start your journey</p>
+            <p className="text-gray-600">Join LaterMe and start your journey</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
@@ -134,10 +179,12 @@ const Signup = ({ onLogin }) => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
+              disabled={loading}
+              className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium cursor-pointer relative z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ pointerEvents: 'auto', cursor: loading ? 'not-allowed' : 'pointer', position: 'relative', zIndex: 10 }}
             >
               <UserPlus size={20} />
-              <span>Create Account</span>
+              <span>{loading ? 'Creating Account...' : 'Create Account'}</span>
             </button>
           </form>
 

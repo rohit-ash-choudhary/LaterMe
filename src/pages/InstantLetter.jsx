@@ -1,45 +1,107 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Send, Globe, Lock, Mail, Crown, AlertTriangle, X } from 'lucide-react'
+import { Send, Lock, Mail, Crown, AlertTriangle, X, Plus, Trash2 } from 'lucide-react'
 import { canCreateLetter, isSubscriptionActive } from '../utils/subscription'
 import { moderateContent } from '../utils/contentModeration'
+import { lettersToSomeoneElseAPI } from '../services/api'
 
 const InstantLetter = ({ user, subscription }) => {
   const navigate = useNavigate()
+  const MAX_RECIPIENTS = 3 // Maximum number of recipients allowed
+  
+  useEffect(() => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    
+    // Check if email is verified
+    if (user.emailVerified === false || user.emailVerified === undefined) {
+      navigate('/verify-email', { 
+        state: { 
+          userData: user 
+        } 
+      })
+      return
+    }
+  }, [user, navigate])
   const [recipient, setRecipient] = useState('email')
-  const [email, setEmail] = useState('')
+  const [emails, setEmails] = useState(['']) // Array to store multiple emails
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showContentWarning, setShowContentWarning] = useState(false)
   const [contentWarning, setContentWarning] = useState(null)
+  const [isSending, setIsSending] = useState(false)
 
-  const handleSend = () => {
+  // Validate email format
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  // Add new email input field (max 3 recipients)
+  const addEmailField = () => {
+    if (emails.length < MAX_RECIPIENTS) {
+      setEmails([...emails, ''])
+    }
+  }
+
+  // Remove email field
+  const removeEmailField = (index) => {
+    if (emails.length > 1) {
+      const newEmails = emails.filter((_, i) => i !== index)
+      setEmails(newEmails)
+    }
+  }
+
+  // Update email at specific index
+  const updateEmail = (index, value) => {
+    const newEmails = [...emails]
+    newEmails[index] = value
+    setEmails(newEmails)
+  }
+
+  // Get valid emails (non-empty and valid format)
+  const getValidEmails = () => {
+    return emails.filter(email => email.trim() && isValidEmail(email.trim()))
+  }
+
+  const handleSend = async () => {
     if (!message.trim()) {
       alert('Please write a message')
       return
     }
 
-    if (recipient === 'email' && !email.trim()) {
-      alert('Please enter an email address')
+    if (recipient !== 'email') {
+      alert('Please select email as recipient type')
       return
     }
 
-    if (!user && !isPublic) {
-      alert('Please login to send private letters')
+    const validEmails = getValidEmails()
+    if (validEmails.length === 0) {
+      alert('Please enter at least one valid email address')
+      return
+    }
+    
+    if (validEmails.length > MAX_RECIPIENTS) {
+      alert(`You can only send to a maximum of ${MAX_RECIPIENTS} recipients`)
+      return
+    }
+
+    if (!user) {
+      alert('Please login to send letters')
       navigate('/login')
       return
     }
 
-    // Content moderation check - only for letters to someone else (not to self)
-    if (recipient !== 'myself') {
-      const moderationResult = moderateContent(message)
-      if (!moderationResult.isSafe) {
-        setContentWarning(moderationResult)
-        setShowContentWarning(true)
-        return
-      }
+    // Content moderation check
+    const moderationResult = moderateContent(message)
+    if (!moderationResult.isSafe) {
+      setContentWarning(moderationResult)
+      setShowContentWarning(true)
+      return
     }
 
     // Check letter limit for free users
@@ -50,46 +112,36 @@ const InstantLetter = ({ user, subscription }) => {
       }
     }
 
-    // Save the letter
-    const letter = {
-      id: Date.now(),
-      recipient: recipient === 'myself' ? 'myself' : email,
-      subject,
-      message,
-      isPublic,
-      createdAt: new Date().toISOString(),
-    }
+    setIsSending(true)
 
-    if (isPublic) {
-      // Add to public letters (in a real app, this would go to a backend)
-      const publicLetters = JSON.parse(localStorage.getItem('futuroo_public') || '[]')
-      publicLetters.unshift({
-        ...letter,
-        author: user?.name || 'Anonymous',
-        likes: 0,
-        comments: 0,
-        isLiked: false,
-        isSaved: false,
-      })
-      localStorage.setItem('futuroo_public', JSON.stringify(publicLetters))
-    } else {
-      // Save to instant letters
-      const instantLetters = JSON.parse(localStorage.getItem('futuroo_instant') || '[]')
-      instantLetters.unshift(letter)
-      localStorage.setItem('futuroo_instant', JSON.stringify(instantLetters))
-    }
+    try {
+      // Call backend API
+      const letterData = {
+        recipients: validEmails,
+        subject: subject || undefined,
+        message: message.trim(),
+      }
 
-    // Clear form
-    setRecipient('email')
-    setEmail('')
-    setSubject('')
-    setMessage('')
-    setIsPublic(false)
-
-    alert(isPublic ? 'Letter shared publicly!' : 'Letter sent!')
-    
-    if (isPublic) {
-      navigate('/public-letters')
+      const response = await lettersToSomeoneElseAPI.send(letterData)
+      
+      // Success - clear form
+      setRecipient('email')
+      setEmails([''])
+      setSubject('')
+      setMessage('')
+      
+      const recipientCount = validEmails.length
+      const statusMessage = response.status === 'SENT' 
+        ? `Letter sent successfully to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!`
+        : response.responseMessage || 'Letter saved but email delivery may have failed'
+      
+      alert(statusMessage)
+      
+    } catch (error) {
+      console.error('Error sending letter:', error)
+      alert(`Failed to send letter: ${error.message || 'Please try again later'}`)
+    } finally {
+      setIsSending(false)
     }
   }
 
@@ -124,39 +176,68 @@ const InstantLetter = ({ user, subscription }) => {
                 <Mail size={18} />
                 <span>Send to Email</span>
               </button>
-              <button
-                onClick={() => {
-                  setRecipient('public')
-                  setIsPublic(true)
-                }}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  recipient === 'public'
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Globe size={18} />
-                <span>Share Publicly</span>
-              </button>
             </div>
             <p className="text-xs text-gray-500 mt-2">
               ⚠️ All messages are checked for appropriate content. Threats, harmful language, or inappropriate content will be blocked.
             </p>
           </div>
 
-          {/* Email Input (if email selected) */}
+          {/* Multiple Email Inputs (if email selected) */}
           {recipient === 'email' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                Email Addresses <span className="text-gray-400 font-normal">(Maximum {MAX_RECIPIENTS} recipients)</span>
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="recipient@example.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
+              <div className="space-y-2">
+                {emails.map((email, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => updateEmail(index, e.target.value)}
+                      placeholder={`recipient${index + 1}@example.com`}
+                      className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                        email.trim() && !isValidEmail(email.trim())
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-gray-300'
+                      }`}
+                    />
+                    {emails.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeEmailField(index)}
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove email"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addEmailField}
+                  disabled={emails.length >= MAX_RECIPIENTS}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    emails.length >= MAX_RECIPIENTS
+                      ? 'text-gray-400 border border-gray-300 bg-gray-50 cursor-not-allowed'
+                      : 'text-primary border border-primary hover:bg-primary/10'
+                  }`}
+                  title={emails.length >= MAX_RECIPIENTS ? `Maximum ${MAX_RECIPIENTS} recipients allowed` : 'Add another recipient'}
+                >
+                  <Plus size={18} />
+                  <span>
+                    {emails.length >= MAX_RECIPIENTS 
+                      ? `Maximum ${MAX_RECIPIENTS} recipients reached` 
+                      : 'Add Another Email'}
+                  </span>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {getValidEmails().length > 0 
+                  ? `✓ ${getValidEmails().length} valid email${getValidEmails().length > 1 ? 's' : ''} added (${MAX_RECIPIENTS - getValidEmails().length} remaining)`
+                  : `Enter at least one valid email address (up to ${MAX_RECIPIENTS} recipients)`}
+              </p>
             </div>
           )}
 
@@ -188,30 +269,19 @@ const InstantLetter = ({ user, subscription }) => {
             />
           </div>
 
-          {/* Privacy Toggle (if not public) */}
-          {recipient !== 'public' && (
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setIsPublic(!isPublic)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  isPublic
-                    ? 'bg-primary/10 text-primary border border-primary'
-                    : 'bg-gray-100 text-gray-700 border border-gray-200'
-                }`}
-              >
-                {isPublic ? <Globe size={18} /> : <Lock size={18} />}
-                <span>{isPublic ? 'Public' : 'Private'}</span>
-              </button>
-            </div>
-          )}
 
           {/* Send Button */}
           <button
             onClick={handleSend}
-            className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
+            disabled={isSending}
+            className={`w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg transition-colors font-medium ${
+              isSending 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-purple-600'
+            }`}
           >
             <Send size={20} />
-            <span>Send Now</span>
+            <span>{isSending ? 'Sending...' : 'Send Now'}</span>
           </button>
         </div>
       </div>
@@ -277,7 +347,7 @@ const InstantLetter = ({ user, subscription }) => {
                 {contentWarning.reason}
               </p>
               <p className="text-sm text-gray-600">
-                Please revise your message to ensure it's respectful and appropriate. FUTUROO promotes positive communication.
+                Please revise your message to ensure it's respectful and appropriate. LaterMe promotes positive communication.
               </p>
             </div>
 
