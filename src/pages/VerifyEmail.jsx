@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Mail, RefreshCw, CheckCircle } from 'lucide-react'
+import { Mail, RefreshCw, CheckCircle, ArrowLeft } from 'lucide-react'
 import { authAPI } from '../services/api'
 
 const VerifyEmail = ({ onLogin }) => {
@@ -155,10 +155,29 @@ const VerifyEmail = ({ onLogin }) => {
     return null // Will redirect
   }
 
+  const handleBack = () => {
+    // Go back to signup page or home if no history
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/signup')
+    }
+  }
+
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         <div className="modern-card rounded-2xl p-8">
+          {/* Back Button */}
+          <button
+            onClick={handleBack}
+            className="flex items-center text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+            type="button"
+          >
+            <ArrowLeft size={20} className="mr-2" />
+            <span>Back</span>
+          </button>
+
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <Mail className="text-primary" size={32} />
