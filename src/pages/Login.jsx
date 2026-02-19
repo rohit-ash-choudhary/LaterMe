@@ -79,7 +79,18 @@ const Login = ({ onLogin, user }) => {
       
       // Auto login
       onLogin(userData)
-      navigate('/')
+      
+      // Check if email is verified - if not, redirect to verification page
+      if (userData.emailVerified === false || userData.emailVerified === undefined) {
+        navigate('/verify-email', { 
+          state: { 
+            userData 
+          },
+          replace: true 
+        })
+      } else {
+        navigate('/', { replace: true })
+      }
     } catch (error) {
       // Handle API errors
       console.error('Login error:', error)

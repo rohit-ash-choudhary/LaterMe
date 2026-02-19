@@ -42,6 +42,7 @@ const VerifyEmail = ({ onLogin }) => {
       return
     }
 
+    // Set user data immediately to prevent blank page
     setUserId(userData.id)
     // Ensure email is set - use stored email or show placeholder
     setUserEmail(userData.email || 'your email')
@@ -216,8 +217,16 @@ const VerifyEmail = ({ onLogin }) => {
     }
   }
 
+  // Show loading state while checking user data instead of returning null
   if (!userId) {
-    return null // Will redirect
+    return (
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   const handleBack = () => {
