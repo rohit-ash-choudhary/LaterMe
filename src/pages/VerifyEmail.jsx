@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Mail, RefreshCw, CheckCircle, ArrowLeft } from 'lucide-react'
 import { authAPI } from '../services/api'
@@ -17,8 +17,25 @@ const VerifyEmail = ({ onLogin }) => {
   const [userId, setUserId] = useState(null)
   const [userEmail, setUserEmail] = useState('')
   const [isInitializing, setIsInitializing] = useState(true)
+  
+  // Use refs to prevent infinite loops
+  const hasInitializedRef = useRef(false)
+  const isNavigatingRef = useRef(false)
+  const lastPathnameRef = useRef('')
 
   useEffect(() => {
+    // Reset initialization flag if pathname changed (user navigated to this page again)
+    if (lastPathnameRef.current !== location.pathname) {
+      hasInitializedRef.current = false
+      isNavigatingRef.current = false
+      lastPathnameRef.current = location.pathname
+    }
+    
+    // Prevent re-running if already initialized or currently navigating
+    if (hasInitializedRef.current || isNavigatingRef.current) {
+      return
+    }
+    
     // Get user data from location state or localStorage
     let userData = location.state?.userData
     const emailWarning = location.state?.emailDeliveryWarning || false
@@ -37,6 +54,7 @@ const VerifyEmail = ({ onLogin }) => {
     
     // Check if user is already verified - if so, redirect to home
     if (userData && userData.emailVerified === true) {
+      isNavigatingRef.current = true
       navigate('/', { replace: true })
       return
     }
@@ -44,6 +62,7 @@ const VerifyEmail = ({ onLogin }) => {
     // If no user data at all, redirect to signup
     if (!userData || !userData.id) {
       console.warn('No user data found, redirecting to signup')
+      isNavigatingRef.current = true
       navigate('/signup', { replace: true })
       return
     }
@@ -54,6 +73,9 @@ const VerifyEmail = ({ onLogin }) => {
     // Ensure email is set - use stored email or show placeholder
     setUserEmail(userData.email || 'your email')
     
+    // Mark as initialized to prevent re-running
+    hasInitializedRef.current = true
+    
     // Show warning if email delivery failed during signup
     if (emailWarning) {
       setError('⚠️ Email delivery failed, but OTP was generated. Please use "Resend OTP" to try again, or check your email spam folder.')
@@ -61,7 +83,7 @@ const VerifyEmail = ({ onLogin }) => {
         setError('')
       }, 8000)
     }
-  }, [location, navigate])
+  }, [location.pathname, navigate]) // Only depend on pathname and navigate - state is read once on mount
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) {
@@ -145,8 +167,9 @@ const VerifyEmail = ({ onLogin }) => {
       }
       
       // Small delay to ensure state is updated before navigation
+      isNavigatingRef.current = true
       setTimeout(() => {
-        navigate('/')
+        navigate('/', { replace: true })
       }, 100)
     } catch (error) {
       console.error('Verification error:', error)
@@ -273,14 +296,20 @@ const VerifyEmail = ({ onLogin }) => {
 
   const handleBack = () => {
     // Always go back to signup page (where user came from)
-    navigate('/signup', { replace: true })
+    if (!isNavigatingRef.current) {
+      isNavigatingRef.current = true
+      navigate('/signup', { replace: true })
+    }
   }
 
   // Handle browser back button
   useEffect(() => {
     const handlePopState = () => {
       // When browser back button is pressed, go to signup
-      navigate('/signup', { replace: true })
+      if (!isNavigatingRef.current) {
+        isNavigatingRef.current = true
+        navigate('/signup', { replace: true })
+      }
     }
     
     window.addEventListener('popstate', handlePopState)
