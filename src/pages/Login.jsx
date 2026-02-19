@@ -19,15 +19,19 @@ const Login = ({ onLogin, user }) => {
         const userData = JSON.parse(storedUser)
         // Only redirect if email is verified
         if (userData?.emailVerified === true) {
-          navigate('/')
+          navigate('/', { replace: true })
+          return
         }
       } catch (e) {
         // Invalid stored user, continue with login
       }
-    } else if (user?.emailVerified === true) {
-      navigate('/')
     }
-  }, [user, navigate])
+    
+    // Check user prop only if it's verified (to avoid infinite loops)
+    if (user?.emailVerified === true) {
+      navigate('/', { replace: true })
+    }
+  }, [user?.emailVerified, navigate]) // Only depend on emailVerified, not entire user object
 
   const handleSubmit = async (e) => {
     e.preventDefault()
