@@ -12,13 +12,14 @@ const VerifyEmail = ({ onLogin }) => {
   const [resending, setResending] = useState(false)
   const [userId, setUserId] = useState(null)
   const [userEmail, setUserEmail] = useState('')
+  const [isInitializing, setIsInitializing] = useState(true)
 
   useEffect(() => {
     // Get user data from location state or localStorage
     let userData = location.state?.userData
     const emailWarning = location.state?.emailDeliveryWarning || false
     
-    // If not in state, try localStorage
+    // If not in state, try localStorage (this handles login redirects)
     if (!userData || !userData.id) {
       try {
         const stored = localStorage.getItem('laterme_user')
@@ -36,13 +37,15 @@ const VerifyEmail = ({ onLogin }) => {
       return
     }
     
+    // If no user data at all, redirect to signup
     if (!userData || !userData.id) {
-      // If no user data, redirect to signup
+      console.warn('No user data found, redirecting to signup')
       navigate('/signup', { replace: true })
       return
     }
 
     // Set user data immediately to prevent blank page
+    // This must happen before any redirects
     setUserId(userData.id)
     // Ensure email is set - use stored email or show placeholder
     setUserEmail(userData.email || 'your email')
@@ -217,13 +220,39 @@ const VerifyEmail = ({ onLogin }) => {
     }
   }
 
-  // Show loading state while checking user data instead of returning null
-  if (!userId) {
+  // Give time for useEffect to set userId before showing error
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitializing(false)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+  
+  if (!userId && isInitializing) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading verification page...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // If still no userId after initialization, show error and redirect
+  if (!userId) {
+    return (
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full text-center">
+          <div className="modern-card rounded-2xl p-8">
+            <p className="text-red-600 mb-4">Unable to load verification page. Redirecting...</p>
+            <button
+              onClick={() => navigate('/signup', { replace: true })}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              Go to Signup
+            </button>
+          </div>
         </div>
       </div>
     )

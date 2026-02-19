@@ -98,11 +98,12 @@ const Login = ({ onLogin, user }) => {
       
       // Check if email is verified - if not, redirect to verification page
       // Use setTimeout to ensure navigation happens after state update
+      // Always pass userData in state to ensure VerifyEmail has access to it
       setTimeout(() => {
         if (userData.emailVerified === false || userData.emailVerified === undefined) {
           navigate('/verify-email', { 
             state: { 
-              userData 
+              userData: userData // Explicitly pass userData
             },
             replace: true 
           })
