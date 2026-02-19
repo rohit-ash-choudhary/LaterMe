@@ -57,8 +57,13 @@ const Header = ({ user, subscription, onLogout }) => {
         <div className="chrome-top-bar">
           {/* Logo - Minimal Chrome Style */}
           <Link to="/" className="chrome-logo group">
-            <div className="chrome-logo-text">
-              LaterMe
+            <div className="flex flex-col">
+              <div className="chrome-logo-text">
+                LaterMe
+              </div>
+              <div className="chrome-tagline">
+                What You'll Be Tomorrow
+              </div>
             </div>
           </Link>
 

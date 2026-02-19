@@ -14,9 +14,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #F8F9FA;
+  background: #E8EAED;
   background-attachment: fixed;
-  color: #202124;
+  color: #1F1F1F;
   min-height: 100vh;
 }
 
@@ -39,16 +39,16 @@ body {
 
 /* Chrome 2026 Style Card */
 .modern-card {
-  background: #FFFFFF;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  background: #F8F9FA;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 12px;
 }
 
 .modern-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.16);
 }
 
 /* Chrome 2026 Style Gradients */
@@ -145,9 +145,9 @@ html {
 
 /* Chrome 2026 Style Header */
 .chrome-header {
-  background: #FFFFFF;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  background: #F1F3F4;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .chrome-header-container {
@@ -186,6 +186,16 @@ html {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.chrome-tagline {
+  font-size: 11px;
+  font-weight: 400;
+  color: #5F6368;
+  letter-spacing: 0.2px;
+  margin-top: 2px;
+  opacity: 0.85;
 }
 
 .chrome-tabs-container {
@@ -216,8 +226,8 @@ html {
 }
 
 .chrome-tab:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: #202124;
+  background: rgba(0, 0, 0, 0.06);
+  color: #1F1F1F;
 }
 
 .chrome-tab-active {
@@ -287,7 +297,7 @@ html {
 
 .chrome-profile-name {
   font-size: 14px;
-  color: #202124;
+  color: #1F1F1F;
   font-weight: 400;
 }
 
@@ -351,9 +361,9 @@ html {
   right: 0;
   top: calc(100% + 8px);
   width: 280px;
-  background: white;
+  background: #F1F3F4;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.1);
   padding: 8px;
   z-index: 1000;
   animation: chrome-dropdown-fade-in 0.2s ease-out;
@@ -383,7 +393,7 @@ html {
   padding: 12px 16px;
   border-radius: 8px;
   text-decoration: none;
-  color: #202124;
+  color: #1F1F1F;
   font-size: 14px;
   transition: background-color 0.15s;
   cursor: pointer;
@@ -394,7 +404,7 @@ html {
 }
 
 .chrome-dropdown-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .chrome-dropdown-item-danger {
@@ -415,8 +425,8 @@ html {
   display: none;
   flex-direction: column;
   padding: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  background: #F1F3F4;
 }
 
 .chrome-mobile-tab {
@@ -460,6 +470,10 @@ html {
   
   .chrome-logo-text {
     font-size: 18px;
+  }
+  
+  .chrome-tagline {
+    font-size: 10px;
   }
 }
 

@@ -271,21 +271,40 @@ const VerifyEmail = ({ onLogin }) => {
   const handleResendOtp = async () => {
     // Get userId from state or localStorage
     let currentUserId = userId
-    if (!currentUserId) {
+    let currentUserEmail = userEmail
+    
+    if (!currentUserId || !currentUserEmail) {
       try {
         const stored = localStorage.getItem('laterme_user')
         if (stored) {
           const userData = JSON.parse(stored)
-          currentUserId = userData.id
+          if (userData.id) {
+            currentUserId = userData.id
+          }
+          if (userData.email) {
+            currentUserEmail = userData.email
+          }
         }
       } catch (e) {
         console.error('Error parsing stored user data:', e)
       }
     }
     
+    // If we still don't have userId, try to get it from email by calling login
+    // But first, check if we have email
+    if (!currentUserId && currentUserEmail) {
+      setError('Unable to resend OTP. Please log in again to receive a new OTP.')
+      setTimeout(() => {
+        navigate('/login', { replace: false })
+      }, 2000)
+      return
+    }
+    
     if (!currentUserId) {
-      setError('User session expired. Please sign up again.')
-      navigate('/signup', { replace: true })
+      setError('User session expired. Please log in again.')
+      setTimeout(() => {
+        navigate('/login', { replace: true })
+      }, 2000)
       return
     }
 
@@ -318,15 +337,15 @@ const VerifyEmail = ({ onLogin }) => {
           })
         }, 10000)
       } else {
-        // Show success message without alert (better UX)
+        // Show success message
         const successMsg = message || 'OTP has been resent to your email!'
-        // Temporarily show success message
-        setError('✓ ' + successMsg)
+        setError('✓ ' + successMsg + ' (Valid for 10 minutes)')
         setTimeout(() => {
           setError('')
-        }, 3000)
+        }, 4000)
       }
       
+      // Clear OTP input fields
       setOtp(['', '', '', '', '', ''])
       document.getElementById('otp-0')?.focus()
     } catch (error) {
@@ -335,6 +354,12 @@ const VerifyEmail = ({ onLogin }) => {
       if (error.message && error.message.includes('Cannot connect to backend')) {
         const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
         setError(`Cannot connect to backend server at ${backendUrl}. The service may be sleeping (free tier) or unavailable. Please try again.`)
+      } else if (error.message && error.message.includes('already verified')) {
+        // If email is already verified, redirect to home
+        setError('Email is already verified. Redirecting...')
+        setTimeout(() => {
+          navigate('/', { replace: true })
+        }, 2000)
       } else {
         setError(error.message || 'Failed to resend OTP. Please try again.')
       }
@@ -460,21 +485,27 @@ const VerifyEmail = ({ onLogin }) => {
               </button>
             </form>
 
-            <div className="mt-6 text-center space-y-4">
+            <div className="mt-6 text-center space-y-3">
               <p className="text-gray-600 text-sm">
                 Didn't receive the code?
               </p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => navigate('/login', { replace: true })}
-                  className="w-full px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors text-sm font-medium"
-                >
-                  Go to Login to Resend OTP
-                </button>
-                <p className="text-xs text-gray-500">
-                  Logging in again will resend the verification code to {userEmail}
-                </p>
-              </div>
+              <button
+                onClick={handleResendOtp}
+                disabled={resending}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={resending ? 'animate-spin' : ''} size={16} />
+                <span>{resending ? 'Sending...' : 'Resend OTP'}</span>
+              </button>
+              <p className="text-xs text-gray-500">
+                OTP will be valid for 10 minutes after resending
+              </p>
+              <button
+                onClick={() => navigate('/login', { replace: false })}
+                className="text-sm text-primary hover:underline"
+              >
+                Or go back to login
+              </button>
             </div>
           </div>
         </div>
@@ -578,18 +609,21 @@ const VerifyEmail = ({ onLogin }) => {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
             <p className="text-gray-600 text-sm mb-2">
               Didn't receive the code?
             </p>
             <button
               onClick={handleResendOtp}
               disabled={resending}
-              className="text-primary hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={resending ? 'animate-spin' : ''} size={16} />
               <span>{resending ? 'Sending...' : 'Resend OTP'}</span>
             </button>
+            <p className="text-xs text-gray-500">
+              OTP will be valid for 10 minutes after resending
+            </p>
           </div>
         </div>
       </div>
