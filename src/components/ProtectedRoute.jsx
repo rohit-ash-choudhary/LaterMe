@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const ProtectedRoute = ({ user, children }) => {
   const navigate = useNavigate()
   const [isChecking, setIsChecking] = useState(true)
+  const hasCheckedRef = useRef(false)
+  const isNavigatingRef = useRef(false)
 
   useEffect(() => {
+    // Prevent multiple checks
+    if (hasCheckedRef.current || isNavigatingRef.current) {
+      return
+    }
+
     // Check localStorage if user prop is not set
     let currentUser = user
     if (!currentUser) {
@@ -14,7 +21,8 @@ const ProtectedRoute = ({ user, children }) => {
         try {
           currentUser = JSON.parse(storedUser)
         } catch (e) {
-          navigate('/login')
+          isNavigatingRef.current = true
+          navigate('/login', { replace: true })
           setIsChecking(false)
           return
         }
@@ -23,25 +31,30 @@ const ProtectedRoute = ({ user, children }) => {
 
     // If no user at all, redirect to login
     if (!currentUser) {
-      navigate('/login')
+      isNavigatingRef.current = true
+      navigate('/login', { replace: true })
       setIsChecking(false)
       return
     }
 
-    // Check if email is verified
+    // Check if email is verified - redirect to verify email page if not verified
     if (currentUser.emailVerified === false || currentUser.emailVerified === undefined) {
+      isNavigatingRef.current = true
       // Redirect to verify email page with user data
       navigate('/verify-email', { 
         state: { 
           userData: currentUser 
-        } 
+        },
+        replace: true
       })
       setIsChecking(false)
       return
     }
 
+    // User is verified, allow access
+    hasCheckedRef.current = true
     setIsChecking(false)
-  }, [user, navigate])
+  }, [user?.id, user?.emailVerified, navigate]) // Only depend on specific user properties, not entire object
 
   // Show loading while checking
   if (isChecking) {

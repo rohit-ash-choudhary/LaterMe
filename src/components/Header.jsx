@@ -1,11 +1,41 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Mail, Globe, User, LogOut, BookOpen, Bookmark, Crown, Send } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const Header = ({ user, subscription, onLogout }) => {
   const location = useLocation()
+  const navigate = useNavigate()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const menuRef = useRef(null)
+  
+  // Helper function to handle navigation for protected routes
+  const handleProtectedNavigation = (e, path) => {
+    // Check if user is logged in
+    let currentUser = user
+    if (!currentUser) {
+      const storedUser = localStorage.getItem('laterme_user')
+      if (storedUser) {
+        try {
+          currentUser = JSON.parse(storedUser)
+        } catch (e) {
+          // Invalid user data, let default navigation happen
+          return
+        }
+      }
+    }
+    
+    // If user exists but is not verified, redirect to verify-email
+    if (currentUser && (currentUser.emailVerified === false || currentUser.emailVerified === undefined)) {
+      e.preventDefault()
+      navigate('/verify-email', {
+        state: {
+          userData: currentUser
+        },
+        replace: false
+      })
+    }
+    // If no user, let default navigation happen (will be handled by ProtectedRoute)
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -37,6 +67,7 @@ const Header = ({ user, subscription, onLogout }) => {
           <nav className="hidden md:flex items-center space-x-1">
             <Link
               to="/write-later"
+              onClick={(e) => handleProtectedNavigation(e, '/write-later')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                 isActive('/write-later')
                   ? 'bg-primary text-white'
@@ -59,6 +90,7 @@ const Header = ({ user, subscription, onLogout }) => {
             </Link>
             <Link
               to="/write-to-someone"
+              onClick={(e) => handleProtectedNavigation(e, '/write-to-someone')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                 isActive('/write-to-someone')
                   ? 'bg-primary text-white'
@@ -104,8 +136,11 @@ const Header = ({ user, subscription, onLogout }) => {
                     )}
                     <Link
                       to="/write-later"
+                      onClick={(e) => {
+                        handleProtectedNavigation(e, '/write-later')
+                        setShowProfileMenu(false)
+                      }}
                       className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-gray-700"
-                      onClick={() => setShowProfileMenu(false)}
                     >
                       <BookOpen size={18} />
                       <span>My Letters</span>
@@ -128,8 +163,11 @@ const Header = ({ user, subscription, onLogout }) => {
                     </Link>
                     <Link
                       to="/manage-account"
+                      onClick={(e) => {
+                        handleProtectedNavigation(e, '/manage-account')
+                        setShowProfileMenu(false)
+                      }}
                       className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-gray-700"
-                      onClick={() => setShowProfileMenu(false)}
                     >
                       <User size={18} />
                       <span>Manage Account</span>
@@ -171,6 +209,7 @@ const Header = ({ user, subscription, onLogout }) => {
         <nav className="md:hidden flex items-center justify-around py-2 border-t border-gray-100">
           <Link
             to="/write-later"
+            onClick={(e) => handleProtectedNavigation(e, '/write-later')}
             className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg ${
               isActive('/write-later') ? 'text-primary' : 'text-gray-600'
             }`}
@@ -189,6 +228,7 @@ const Header = ({ user, subscription, onLogout }) => {
           </Link>
           <Link
             to="/write-to-someone"
+            onClick={(e) => handleProtectedNavigation(e, '/write-to-someone')}
             className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg ${
               isActive('/write-to-someone') ? 'text-primary' : 'text-gray-600'
             }`}
