@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, User, UserPlus } from 'lucide-react'
 import { authAPI } from '../services/api'
@@ -10,9 +10,15 @@ const Signup = ({ onLogin, user }) => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const hasNavigatedRef = useRef(false) // Track if we've already navigated
 
   // Redirect if already logged in and verified
   useEffect(() => {
+    // Prevent multiple navigations
+    if (hasNavigatedRef.current) {
+      return
+    }
+
     // Check localStorage as well in case user prop hasn't updated yet
     const storedUser = localStorage.getItem('laterme_user')
     if (storedUser) {
@@ -20,6 +26,7 @@ const Signup = ({ onLogin, user }) => {
         const userData = JSON.parse(storedUser)
         // Only redirect if email is verified
         if (userData?.emailVerified === true) {
+          hasNavigatedRef.current = true
           navigate('/', { replace: true })
           return
         }
@@ -30,6 +37,7 @@ const Signup = ({ onLogin, user }) => {
     
     // Check user prop only if it's verified (to avoid infinite loops)
     if (user?.emailVerified === true) {
+      hasNavigatedRef.current = true
       navigate('/', { replace: true })
     }
   }, [user?.emailVerified, navigate]) // Only depend on emailVerified, not entire user object
@@ -87,6 +95,9 @@ const Signup = ({ onLogin, user }) => {
       
       // Store user data temporarily (not fully logged in until verified)
       localStorage.setItem('laterme_user', JSON.stringify(userData))
+      
+      // Mark that we're navigating to prevent useEffect from interfering
+      hasNavigatedRef.current = true
       
       // Update parent component's user state (even though not verified)
       onLogin(userData)
