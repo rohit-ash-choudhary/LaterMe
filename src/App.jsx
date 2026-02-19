@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -40,7 +40,7 @@ function App() {
     }
   }, [])
 
-  const handleLogin = (userData) => {
+  const handleLogin = useCallback((userData) => {
     // Ensure userData is properly formatted
     const formattedUserData = {
       ...userData,
@@ -50,7 +50,7 @@ function App() {
     localStorage.setItem('laterme_user', JSON.stringify(formattedUserData))
     // Subscription removed - will be handled by backend API in the future
     setSubscription(null)
-  }
+  }, []) // Empty dependency array - function doesn't depend on any props or state
 
   const handleLogout = () => {
     setUser(null)

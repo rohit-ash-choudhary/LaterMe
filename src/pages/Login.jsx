@@ -10,11 +10,12 @@ const Login = ({ onLogin, user }) => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const hasNavigatedRef = useRef(false) // Track if we've already navigated
+  const isSubmittingRef = useRef(false) // Track if we're currently submitting
 
   // Redirect if already logged in
   useEffect(() => {
-    // Prevent multiple navigations
-    if (hasNavigatedRef.current) {
+    // Prevent multiple navigations or running during submission
+    if (hasNavigatedRef.current || isSubmittingRef.current) {
       return
     }
 
@@ -35,6 +36,7 @@ const Login = ({ onLogin, user }) => {
     }
     
     // Check user prop only if it's verified (to avoid infinite loops)
+    // But skip if user is unverified (they're in the login flow)
     if (user?.emailVerified === true) {
       hasNavigatedRef.current = true
       navigate('/', { replace: true })
@@ -45,11 +47,13 @@ const Login = ({ onLogin, user }) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+    isSubmittingRef.current = true // Mark that we're submitting
 
     // Simple validation
     if (!email || !password) {
       setError('Please fill in all fields')
       setLoading(false)
+      isSubmittingRef.current = false
       return
     }
 
@@ -87,22 +91,29 @@ const Login = ({ onLogin, user }) => {
       
       // Mark that we're navigating to prevent useEffect from interfering
       hasNavigatedRef.current = true
+      isSubmittingRef.current = false // Reset submission flag before navigation
       
       // Auto login
       onLogin(userData)
       
       // Check if email is verified - if not, redirect to verification page
-      if (userData.emailVerified === false || userData.emailVerified === undefined) {
-        navigate('/verify-email', { 
-          state: { 
-            userData 
-          },
-          replace: true 
-        })
-      } else {
-        navigate('/', { replace: true })
-      }
+      // Use setTimeout to ensure navigation happens after state update
+      setTimeout(() => {
+        if (userData.emailVerified === false || userData.emailVerified === undefined) {
+          navigate('/verify-email', { 
+            state: { 
+              userData 
+            },
+            replace: true 
+          })
+        } else {
+          navigate('/', { replace: true })
+        }
+      }, 0)
     } catch (error) {
+      // Reset submission flag on error
+      isSubmittingRef.current = false
+      
       // Handle API errors
       console.error('Login error:', error)
       if (error.message.includes('Cannot connect to backend') || error.message.includes('Failed to fetch')) {

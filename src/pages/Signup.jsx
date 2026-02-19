@@ -11,11 +11,12 @@ const Signup = ({ onLogin, user }) => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const hasNavigatedRef = useRef(false) // Track if we've already navigated
+  const isSubmittingRef = useRef(false) // Track if we're currently submitting
 
   // Redirect if already logged in and verified
   useEffect(() => {
-    // Prevent multiple navigations
-    if (hasNavigatedRef.current) {
+    // Prevent multiple navigations or running during submission
+    if (hasNavigatedRef.current || isSubmittingRef.current) {
       return
     }
 
@@ -36,6 +37,7 @@ const Signup = ({ onLogin, user }) => {
     }
     
     // Check user prop only if it's verified (to avoid infinite loops)
+    // But skip if user is unverified (they're in the signup flow)
     if (user?.emailVerified === true) {
       hasNavigatedRef.current = true
       navigate('/', { replace: true })
@@ -46,17 +48,20 @@ const Signup = ({ onLogin, user }) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+    isSubmittingRef.current = true // Mark that we're submitting
 
     // Simple validation
     if (!name || !email || !password) {
       setError('Please fill in all fields')
       setLoading(false)
+      isSubmittingRef.current = false
       return
     }
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters')
       setLoading(false)
+      isSubmittingRef.current = false
       return
     }
 
@@ -65,6 +70,7 @@ const Signup = ({ onLogin, user }) => {
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address')
       setLoading(false)
+      isSubmittingRef.current = false
       return
     }
 
@@ -98,21 +104,28 @@ const Signup = ({ onLogin, user }) => {
       
       // Mark that we're navigating to prevent useEffect from interfering
       hasNavigatedRef.current = true
+      isSubmittingRef.current = false // Reset submission flag before navigation
       
       // Update parent component's user state (even though not verified)
+      // Use setTimeout to ensure navigation happens after state update
       onLogin(userData)
       
       // Redirect to OTP verification page with userData
       // Note: Even if email sending fails, OTP is saved in database
       // User can use "Resend OTP" feature if email wasn't received
-      navigate('/verify-email', { 
-        state: { 
-          userData,
-          emailDeliveryWarning: response.emailSent === false || response.status === 'warning'
-        }, 
-        replace: true 
-      })
+      setTimeout(() => {
+        navigate('/verify-email', { 
+          state: { 
+            userData,
+            emailDeliveryWarning: response.emailSent === false || response.status === 'warning'
+          }, 
+          replace: true 
+        })
+      }, 0)
     } catch (error) {
+      // Reset submission flag on error
+      isSubmittingRef.current = false
+      
       // Handle API errors
       console.error('Registration error:', error)
       if (error.message.includes('Cannot connect to backend') || error.message.includes('Failed to fetch')) {
@@ -157,6 +170,8 @@ const Signup = ({ onLogin, user }) => {
       }
     } finally {
       setLoading(false)
+      // Note: isSubmittingRef is reset in success case before navigation
+      // and in error case in the catch block
     }
   }
 
