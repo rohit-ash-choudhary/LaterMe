@@ -65,7 +65,7 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-gray-50">
         <Header user={user} subscription={subscription} onLogout={handleLogout} />
         <main className="flex-grow">
           <Routes>

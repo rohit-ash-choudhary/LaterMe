@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Mail, Globe, User, LogOut, BookOpen, Bookmark, Crown, Send } from 'lucide-react'
+import { Mail, Globe, User, LogOut, BookOpen, Bookmark, Crown, Send, Menu, X } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const Header = ({ user, subscription, onLogout }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const menuRef = useRef(null)
   
   // Helper function to handle navigation for protected routes
@@ -50,87 +51,83 @@ const Header = ({ user, subscription, onLogout }) => {
   const isActive = (path) => location.pathname === path
 
   return (
-    <header className="glass-strong sticky top-0 z-50 border-b border-white/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="text-3xl font-extrabold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
+    <header className="chrome-header sticky top-0 z-50">
+      <div className="chrome-header-container">
+        {/* Top Bar - Chrome Style */}
+        <div className="chrome-top-bar">
+          {/* Logo - Minimal Chrome Style */}
+          <Link to="/" className="chrome-logo group">
+            <div className="chrome-logo-text">
               LaterMe
             </div>
-            <span className="hidden sm:inline text-sm text-gray-600 font-medium">
-              Messages for Who You'll Be
-            </span>
           </Link>
 
-          {/* Center Tabs */}
-          <nav className="hidden md:flex items-center space-x-1">
+          {/* Chrome-Style Tabs Navigation */}
+          <nav className="chrome-tabs-container">
             <Link
               to="/write-later"
-              onClick={(e) => handleProtectedNavigation(e, '/write-later')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                isActive('/write-later')
-                  ? 'bg-primary text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              onClick={(e) => {
+                handleProtectedNavigation(e, '/write-later')
+                setShowMobileMenu(false)
+              }}
+              className={`chrome-tab ${isActive('/write-later') ? 'chrome-tab-active' : ''}`}
             >
-              <Mail size={18} />
-              <span>Write Later</span>
+              <Mail size={16} className="chrome-tab-icon" />
+              <span className="chrome-tab-text">Write Later</span>
+              {isActive('/write-later') && <div className="chrome-tab-indicator" />}
             </Link>
             <Link
               to="/public-letters"
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                isActive('/public-letters')
-                  ? 'bg-primary text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              onClick={() => setShowMobileMenu(false)}
+              className={`chrome-tab ${isActive('/public-letters') ? 'chrome-tab-active' : ''}`}
             >
-              <Globe size={18} />
-              <span>Public Letters</span>
+              <Globe size={16} className="chrome-tab-icon" />
+              <span className="chrome-tab-text">Public Letters</span>
+              {isActive('/public-letters') && <div className="chrome-tab-indicator" />}
             </Link>
             <Link
               to="/write-to-someone"
-              onClick={(e) => handleProtectedNavigation(e, '/write-to-someone')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                isActive('/write-to-someone')
-                  ? 'bg-primary text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              onClick={(e) => {
+                handleProtectedNavigation(e, '/write-to-someone')
+                setShowMobileMenu(false)
+              }}
+              className={`chrome-tab ${isActive('/write-to-someone') ? 'chrome-tab-active' : ''}`}
             >
-              <Send size={18} />
-              <span>Write Letter to Someone Else</span>
+              <Send size={16} className="chrome-tab-icon" />
+              <span className="chrome-tab-text">To Someone</span>
+              {isActive('/write-to-someone') && <div className="chrome-tab-indicator" />}
             </Link>
           </nav>
 
-          {/* Right Side - Auth */}
-          <div className="flex items-center space-x-4">
+          {/* Right Side - Chrome Style Actions */}
+          <div className="chrome-actions">
             {user ? (
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                  className="chrome-profile-button"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
+                  <div className="chrome-avatar">
                     {user.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <span className="hidden sm:inline text-gray-700">{user.name}</span>
+                  <span className="chrome-profile-name">{user.name}</span>
                 </button>
 
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+                  <div className="chrome-dropdown">
                     {subscription && subscription.plan !== 'free' && (
-                      <div className="px-4 py-2 border-b border-gray-100">
+                      <div className="chrome-dropdown-header">
                         <div className="flex items-center space-x-2 text-primary">
                           <Crown size={16} />
-                      <span className="text-sm font-medium">
-                        {subscription.plan === 'lifetime' 
-                          ? 'Lifetime Premium' 
-                          : subscription.plan === 'yearly'
-                          ? 'Yearly Premium'
-                          : subscription.plan === 'monthly'
-                          ? 'Monthly Premium'
-                          : 'Free'}
-                      </span>
+                          <span className="text-sm font-medium">
+                            {subscription.plan === 'lifetime' 
+                              ? 'Lifetime Premium' 
+                              : subscription.plan === 'yearly'
+                              ? 'Yearly Premium'
+                              : subscription.plan === 'monthly'
+                              ? 'Monthly Premium'
+                              : 'Free'}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -140,14 +137,14 @@ const Header = ({ user, subscription, onLogout }) => {
                         handleProtectedNavigation(e, '/write-later')
                         setShowProfileMenu(false)
                       }}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-gray-700"
+                      className="chrome-dropdown-item"
                     >
                       <BookOpen size={18} />
                       <span>My Letters</span>
                     </Link>
                     <Link
                       to="/public-letters?filter=saved"
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-gray-700"
+                      className="chrome-dropdown-item"
                       onClick={() => setShowProfileMenu(false)}
                     >
                       <Bookmark size={18} />
@@ -155,7 +152,7 @@ const Header = ({ user, subscription, onLogout }) => {
                     </Link>
                     <Link
                       to="/pricing"
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-gray-700"
+                      className="chrome-dropdown-item"
                       onClick={() => setShowProfileMenu(false)}
                     >
                       <Crown size={18} />
@@ -167,18 +164,18 @@ const Header = ({ user, subscription, onLogout }) => {
                         handleProtectedNavigation(e, '/manage-account')
                         setShowProfileMenu(false)
                       }}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-gray-700"
+                      className="chrome-dropdown-item"
                     >
                       <User size={18} />
                       <span>Manage Account</span>
                     </Link>
-                    <hr className="my-2" />
+                    <div className="chrome-dropdown-divider" />
                     <button
                       onClick={() => {
                         onLogout()
                         setShowProfileMenu(false)
                       }}
-                      className="w-full flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 text-red-600"
+                      className="chrome-dropdown-item chrome-dropdown-item-danger"
                     >
                       <LogOut size={18} />
                       <span>Logout</span>
@@ -187,56 +184,67 @@ const Header = ({ user, subscription, onLogout }) => {
                 )}
               </div>
             ) : (
-              <>
+              <div className="chrome-auth-buttons">
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-gray-700 hover:text-primary transition-colors"
+                  className="chrome-button-text"
                 >
                   Login
                 </Link>
                 <Link
                   to="/signup"
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+                  className="chrome-button-primary"
                 >
                   Sign Up
                 </Link>
-              </>
+              </div>
             )}
+            
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="chrome-mobile-menu-button"
+            >
+              {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
 
-        {/* Mobile Navigation */}
-        <nav className="md:hidden flex items-center justify-around py-2 border-t border-gray-100">
-          <Link
-            to="/write-later"
-            onClick={(e) => handleProtectedNavigation(e, '/write-later')}
-            className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg ${
-              isActive('/write-later') ? 'text-primary' : 'text-gray-600'
-            }`}
-          >
-            <Mail size={20} />
-            <span className="text-xs">Write Later</span>
-          </Link>
-          <Link
-            to="/public-letters"
-            className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg ${
-              isActive('/public-letters') ? 'text-primary' : 'text-gray-600'
-            }`}
-          >
-            <Globe size={20} />
-            <span className="text-xs">Public</span>
-          </Link>
-          <Link
-            to="/write-to-someone"
-            onClick={(e) => handleProtectedNavigation(e, '/write-to-someone')}
-            className={`flex flex-col items-center space-y-1 px-3 py-2 rounded-lg ${
-              isActive('/write-to-someone') ? 'text-primary' : 'text-gray-600'
-            }`}
-          >
-            <Send size={20} />
-            <span className="text-xs">To Someone Else</span>
-          </Link>
-        </nav>
+        {/* Mobile Navigation - Chrome Style */}
+        {showMobileMenu && (
+          <nav className="chrome-mobile-nav">
+            <Link
+              to="/write-later"
+              onClick={(e) => {
+                handleProtectedNavigation(e, '/write-later')
+                setShowMobileMenu(false)
+              }}
+              className={`chrome-mobile-tab ${isActive('/write-later') ? 'chrome-mobile-tab-active' : ''}`}
+            >
+              <Mail size={20} />
+              <span>Write Later</span>
+            </Link>
+            <Link
+              to="/public-letters"
+              onClick={() => setShowMobileMenu(false)}
+              className={`chrome-mobile-tab ${isActive('/public-letters') ? 'chrome-mobile-tab-active' : ''}`}
+            >
+              <Globe size={20} />
+              <span>Public Letters</span>
+            </Link>
+            <Link
+              to="/write-to-someone"
+              onClick={(e) => {
+                handleProtectedNavigation(e, '/write-to-someone')
+                setShowMobileMenu(false)
+              }}
+              className={`chrome-mobile-tab ${isActive('/write-to-someone') ? 'chrome-mobile-tab-active' : ''}`}
+            >
+              <Send size={20} />
+              <span>To Someone</span>
+            </Link>
+          </nav>
+        )}
       </div>
     </header>
   )
