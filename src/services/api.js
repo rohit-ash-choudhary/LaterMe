@@ -65,7 +65,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/letters?type=${type}`, {
+    return apiRequest(`/v1/letters?type=${type}`, {
       headers: {
         'userId': userId.toString(),
       },
@@ -77,7 +77,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/letters/${letterId}`, {
+    return apiRequest(`/v1/letters/${letterId}`, {
       headers: {
         'userId': userId.toString(),
       },
@@ -89,7 +89,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest('/letters/drafts', {
+    return apiRequest('/v1/letters/drafts', {
       method: 'POST',
       headers: {
         'userId': userId.toString(),
@@ -103,7 +103,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/letters/drafts/${draftId}`, {
+    return apiRequest(`/v1/letters/drafts/${draftId}`, {
       method: 'PUT',
       headers: {
         'userId': userId.toString(),
@@ -117,7 +117,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/letters/drafts/${draftId}`, {
+    return apiRequest(`/v1/letters/drafts/${draftId}`, {
       method: 'DELETE',
       headers: {
         'userId': userId.toString(),
@@ -130,7 +130,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest('/letters/schedule', {
+    return apiRequest('/v1/letters/schedule', {
       method: 'POST',
       headers: {
         'userId': userId.toString(),
@@ -145,7 +145,7 @@ export const lettersAPI = {
       throw new Error('User not logged in')
     }
     const body = currentMood ? { currentMood } : {}
-    return apiRequest(`/letters/${letterId}/open`, {
+    return apiRequest(`/v1/letters/${letterId}/open`, {
       method: 'POST',
       headers: {
         'userId': userId.toString(),
@@ -159,7 +159,7 @@ export const lettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/letters/${letterId}/opened`, {
+    return apiRequest(`/v1/letters/${letterId}/opened`, {
       method: 'PUT',
       headers: {
         'userId': userId.toString(),
