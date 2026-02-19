@@ -330,7 +330,30 @@ const VerifyEmail = ({ onLogin }) => {
     }, 100)
     return () => clearTimeout(timer)
   }, [])
-  
+
+  // Handle browser back button - MUST be before any early returns
+  useEffect(() => {
+    const handlePopState = () => {
+      // When browser back button is pressed, go to signup
+      if (!isNavigatingRef.current) {
+        isNavigatingRef.current = true
+        navigate('/signup', { replace: true })
+      }
+    }
+    
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [navigate]) // navigate is stable, but include for completeness
+
+  const handleBack = () => {
+    // Always go back to signup page (where user came from)
+    if (!isNavigatingRef.current) {
+      isNavigatingRef.current = true
+      navigate('/signup', { replace: true })
+    }
+  }
+
+  // NOW we can do early returns - all hooks are above this point
   if (!userId && isInitializing) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
@@ -360,28 +383,6 @@ const VerifyEmail = ({ onLogin }) => {
       </div>
     )
   }
-
-  const handleBack = () => {
-    // Always go back to signup page (where user came from)
-    if (!isNavigatingRef.current) {
-      isNavigatingRef.current = true
-      navigate('/signup', { replace: true })
-    }
-  }
-
-  // Handle browser back button
-  useEffect(() => {
-    const handlePopState = () => {
-      // When browser back button is pressed, go to signup
-      if (!isNavigatingRef.current) {
-        isNavigatingRef.current = true
-        navigate('/signup', { replace: true })
-      }
-    }
-    
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, []) // navigate is stable, doesn't need to be in deps
 
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
