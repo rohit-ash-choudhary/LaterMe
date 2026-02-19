@@ -59,30 +59,55 @@ const VerifyEmail = ({ onLogin }) => {
       return
     }
     
-    // If no user data at all, redirect to signup
-    if (!userData || !userData.id) {
-      console.warn('No user data found, redirecting to signup')
-      isNavigatingRef.current = true
-      navigate('/signup', { replace: true })
+    // If we have user data (even if incomplete), set it and show the page
+    // Don't redirect to signup immediately - give user a chance to verify
+    if (userData && userData.id) {
+      // Set user data immediately to prevent blank page
+      setUserId(userData.id)
+      // Ensure email is set - use stored email or show placeholder
+      setUserEmail(userData.email || 'your email')
+      
+      // Mark as initialized to prevent re-running
+      hasInitializedRef.current = true
+      
+      // Show warning if email delivery failed during signup
+      if (emailWarning) {
+        setError('⚠️ Email delivery failed, but OTP was generated. Please use "Resend OTP" to try again, or check your email spam folder.')
+        setTimeout(() => {
+          setError('')
+        }, 8000)
+      }
       return
     }
-
-    // Set user data immediately to prevent blank page
-    // This must happen before any redirects
-    setUserId(userData.id)
-    // Ensure email is set - use stored email or show placeholder
-    setUserEmail(userData.email || 'your email')
     
-    // Mark as initialized to prevent re-running
-    hasInitializedRef.current = true
+    // Only redirect to signup if we've waited and still have no user data
+    // Give it a small delay to allow localStorage to be populated
+    const redirectTimer = setTimeout(() => {
+      // Check one more time for user data
+      try {
+        const stored = localStorage.getItem('laterme_user')
+        if (stored) {
+          const finalUserData = JSON.parse(stored)
+          if (finalUserData && finalUserData.id) {
+            setUserId(finalUserData.id)
+            setUserEmail(finalUserData.email || 'your email')
+            hasInitializedRef.current = true
+            return
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing stored user data:', e)
+      }
+      
+      // If still no user data after delay, redirect to signup
+      if (!hasInitializedRef.current) {
+        console.warn('No user data found after delay, redirecting to signup')
+        isNavigatingRef.current = true
+        navigate('/signup', { replace: true })
+      }
+    }, 500) // Wait 500ms for localStorage to be populated
     
-    // Show warning if email delivery failed during signup
-    if (emailWarning) {
-      setError('⚠️ Email delivery failed, but OTP was generated. Please use "Resend OTP" to try again, or check your email spam folder.')
-      setTimeout(() => {
-        setError('')
-      }, 8000)
-    }
+    return () => clearTimeout(redirectTimer)
   }, [location.pathname, navigate]) // Only depend on pathname and navigate - state is read once on mount
 
   const handleOtpChange = (index, value) => {
