@@ -4,6 +4,10 @@ import { Mail, RefreshCw, CheckCircle, ArrowLeft } from 'lucide-react'
 import { authAPI } from '../services/api'
 
 const VerifyEmail = ({ onLogin }) => {
+  // Ensure onLogin is available
+  if (!onLogin) {
+    console.error('VerifyEmail: onLogin prop is missing')
+  }
   const navigate = useNavigate()
   const location = useLocation()
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
@@ -134,7 +138,11 @@ const VerifyEmail = ({ onLogin }) => {
       localStorage.setItem('laterme_user', JSON.stringify(userData))
       
       // Update parent component's user state
-      onLogin(userData)
+      if (onLogin) {
+        onLogin(userData)
+      } else {
+        console.error('VerifyEmail: onLogin function is not available')
+      }
       
       // Small delay to ensure state is updated before navigation
       setTimeout(() => {
@@ -186,13 +194,18 @@ const VerifyEmail = ({ onLogin }) => {
       // Check if email delivery failed
       if (!emailSent || status === 'warning') {
         const warningMsg = message || 'OTP was generated, but email delivery failed. The OTP is still valid and saved in the system. You can still enter it below.'
-        setError('⚠️ ' + warningMsg)
+        const warningError = '⚠️ ' + warningMsg
+        setError(warningError)
         // Keep the error visible longer for important warnings
         setTimeout(() => {
-          // Don't clear if it's still the same warning
-          if (error.startsWith('⚠️')) {
-            setError('')
-          }
+          // Clear the warning after timeout
+          setError(prevError => {
+            // Only clear if it's still the same warning message
+            if (prevError === warningError) {
+              return ''
+            }
+            return prevError
+          })
         }, 10000)
       } else {
         // Show success message without alert (better UX)
