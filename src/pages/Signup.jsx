@@ -11,11 +11,21 @@ const Signup = ({ onLogin, user }) => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Redirect if already logged in
+  // Redirect if already logged in and verified
   useEffect(() => {
     // Check localStorage as well in case user prop hasn't updated yet
     const storedUser = localStorage.getItem('laterme_user')
-    if (user || storedUser) {
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        // Only redirect if email is verified
+        if (userData?.emailVerified === true) {
+          navigate('/')
+        }
+      } catch (e) {
+        // Invalid stored user, continue with signup
+      }
+    } else if (user?.emailVerified === true) {
       navigate('/')
     }
   }, [user, navigate])
@@ -55,22 +65,30 @@ const Signup = ({ onLogin, user }) => {
         passHash: password  // Backend expects 'passHash' instead of 'password'
       })
       
-      // Backend returns UserResponceDTO directly (not wrapped in {user: {...}, token: ...})
-      // So response is the user object itself
+      // Backend returns SignupResponseDTO with id, name, email, emailVerified, token
+      // Ensure email is included in userData
       const userData = {
         id: response.id,
-        name: response.name,
-        email: response.email,
+        name: response.name || name, // Fallback to form input if response doesn't have it
+        email: response.email || email, // Fallback to form input if response doesn't have it
         token: response.token || null, // JWT token (may be null until email verified)
         refreshToken: null, // Refresh token only after email verification
         emailVerified: response.emailVerified || false
       }
       
+      // Ensure email is always set (use form value as fallback)
+      if (!userData.email) {
+        userData.email = email
+      }
+      
       // Store user data temporarily (not fully logged in until verified)
       localStorage.setItem('laterme_user', JSON.stringify(userData))
       
-      // Redirect to OTP verification page
-      navigate('/verify-email', { state: { userData } })
+      // Update parent component's user state (even though not verified)
+      onLogin(userData)
+      
+      // Redirect to OTP verification page with userData
+      navigate('/verify-email', { state: { userData }, replace: true })
     } catch (error) {
       // Handle API errors
       console.error('Registration error:', error)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Calendar, Send, Save, Lock, Heart, AlertCircle, Trophy, DollarSign, Lightbulb, X, Globe, Crown, Zap, Mail, Trash2 } from 'lucide-react'
+import { FileText, Calendar, Send, Save, Lock, Heart, AlertCircle, Trophy, DollarSign, Lightbulb, X, Globe, Crown, Zap, Mail, Trash2, RefreshCw } from 'lucide-react'
 import { format, differenceInMonths, differenceInDays, isBefore, parseISO } from 'date-fns'
 import { canCreateLetter, getRemainingFreeLetters, isSubscriptionActive } from '../utils/subscription'
 import { lettersToSomeoneElseAPI, lettersAPI } from '../services/api'
@@ -53,17 +53,32 @@ const WriteLater = ({ user, subscription }) => {
   ]
 
   useEffect(() => {
-    if (!user) {
+    // Check localStorage if user prop is not set
+    let currentUser = user
+    if (!currentUser) {
+      const storedUser = localStorage.getItem('laterme_user')
+      if (storedUser) {
+        try {
+          currentUser = JSON.parse(storedUser)
+        } catch (e) {
+          navigate('/login')
+          return
+        }
+      }
+    }
+    
+    if (!currentUser) {
       navigate('/login')
       return
     }
     
     // Check if email is verified
-    if (user.emailVerified === false || user.emailVerified === undefined) {
+    if (currentUser.emailVerified === false || currentUser.emailVerified === undefined) {
       navigate('/verify-email', { 
         state: { 
-          userData: user 
-        } 
+          userData: currentUser 
+        },
+        replace: true
       })
       return
     }
@@ -76,8 +91,10 @@ const WriteLater = ({ user, subscription }) => {
       loadLettersToSomeoneElse()
       
       // Check remaining letters
-      const remaining = getRemainingFreeLetters(user.id)
-      setRemainingLetters(remaining)
+      if (currentUser && currentUser.id) {
+        const remaining = getRemainingFreeLetters(currentUser.id)
+        setRemainingLetters(remaining)
+      }
     } catch (error) {
       console.error('Error initializing WriteLater:', error)
       // Don't navigate away, just log the error so the page can still render

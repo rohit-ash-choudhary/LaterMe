@@ -25,14 +25,14 @@ function App() {
       try {
         const userData = JSON.parse(storedUser)
         
-        // Only set user if email is verified
-        // Unverified users will be handled by ProtectedRoute or individual page checks
-        if (userData?.emailVerified === true) {
+        // Set user state regardless of verification status
+        // This allows the app to know about unverified users and handle them properly
+        // Individual pages and ProtectedRoute will check emailVerified status
+        if (userData && userData.id) {
           setUser(userData)
           // Subscription removed - will be handled by backend API in the future
           setSubscription(null)
         }
-        // If not verified, don't set user state (they'll be redirected by ProtectedRoute)
       } catch (e) {
         console.error('Error parsing user data:', e)
         localStorage.removeItem('laterme_user')
@@ -41,8 +41,13 @@ function App() {
   }, [])
 
   const handleLogin = (userData) => {
-    setUser(userData)
-    localStorage.setItem('laterme_user', JSON.stringify(userData))
+    // Ensure userData is properly formatted
+    const formattedUserData = {
+      ...userData,
+      emailVerified: userData.emailVerified !== undefined ? userData.emailVerified : false
+    }
+    setUser(formattedUserData)
+    localStorage.setItem('laterme_user', JSON.stringify(formattedUserData))
     // Subscription removed - will be handled by backend API in the future
     setSubscription(null)
   }

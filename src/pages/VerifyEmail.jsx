@@ -15,16 +15,35 @@ const VerifyEmail = ({ onLogin }) => {
 
   useEffect(() => {
     // Get user data from location state or localStorage
-    const userData = location.state?.userData || JSON.parse(localStorage.getItem('laterme_user') || '{}')
+    let userData = location.state?.userData
+    
+    // If not in state, try localStorage
+    if (!userData || !userData.id) {
+      try {
+        const stored = localStorage.getItem('laterme_user')
+        if (stored) {
+          userData = JSON.parse(stored)
+        }
+      } catch (e) {
+        console.error('Error parsing stored user data:', e)
+      }
+    }
+    
+    // Check if user is already verified - if so, redirect to home
+    if (userData && userData.emailVerified === true) {
+      navigate('/', { replace: true })
+      return
+    }
     
     if (!userData || !userData.id) {
       // If no user data, redirect to signup
-      navigate('/signup')
+      navigate('/signup', { replace: true })
       return
     }
 
     setUserId(userData.id)
-    setUserEmail(userData.email || '')
+    // Ensure email is set - use stored email or show placeholder
+    setUserEmail(userData.email || 'your email')
   }, [location, navigate])
 
   const handleOtpChange = (index, value) => {
@@ -88,18 +107,26 @@ const VerifyEmail = ({ onLogin }) => {
       const response = await authAPI.verifyEmail(userId, otpCode)
       
       // Update user data with verified status
+      // Ensure all required fields are present
       const userData = {
-        id: response.id,
-        name: response.name,
-        email: response.email,
-        token: response.token, // JWT token from backend
-        refreshToken: response.refreshToken, // Refresh token from backend
-        emailVerified: true
+        id: response.id || userId,
+        name: response.name || location.state?.userData?.name || '',
+        email: response.email || location.state?.userData?.email || userEmail,
+        token: response.token || null, // JWT token from backend
+        refreshToken: response.refreshToken || null, // Refresh token from backend
+        emailVerified: true // Mark as verified
       }
       
+      // Update localStorage with verified user data
       localStorage.setItem('laterme_user', JSON.stringify(userData))
+      
+      // Update parent component's user state
       onLogin(userData)
-      navigate('/')
+      
+      // Small delay to ensure state is updated before navigation
+      setTimeout(() => {
+        navigate('/')
+      }, 100)
     } catch (error) {
       console.error('Verification error:', error)
       setError(error.message || 'Invalid OTP. Please try again.')
@@ -111,8 +138,23 @@ const VerifyEmail = ({ onLogin }) => {
   }
 
   const handleResendOtp = async () => {
-    if (!userId) {
+    // Get userId from state or localStorage
+    let currentUserId = userId
+    if (!currentUserId) {
+      try {
+        const stored = localStorage.getItem('laterme_user')
+        if (stored) {
+          const userData = JSON.parse(stored)
+          currentUserId = userData.id
+        }
+      } catch (e) {
+        console.error('Error parsing stored user data:', e)
+      }
+    }
+    
+    if (!currentUserId) {
       setError('User session expired. Please sign up again.')
+      navigate('/signup', { replace: true })
       return
     }
 
@@ -120,7 +162,7 @@ const VerifyEmail = ({ onLogin }) => {
     setError('')
 
     try {
-      const response = await authAPI.resendOtp(userId)
+      const response = await authAPI.resendOtp(currentUserId)
       setError('')
       
       // Handle response object
@@ -132,7 +174,13 @@ const VerifyEmail = ({ onLogin }) => {
       if (!emailSent || status === 'warning') {
         setError(message || 'OTP was generated, but email delivery failed. The OTP is still valid and saved in the system.')
       } else {
-        alert(message || 'OTP has been resent to your email!')
+        // Show success message without alert (better UX)
+        const successMsg = message || 'OTP has been resent to your email!'
+        // Temporarily show success message
+        setError('✓ ' + successMsg)
+        setTimeout(() => {
+          setError('')
+        }, 3000)
       }
       
       setOtp(['', '', '', '', '', ''])
@@ -198,7 +246,11 @@ const VerifyEmail = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className={`px-4 py-3 rounded-lg text-sm ${
+                error.startsWith('✓') 
+                  ? 'bg-green-50 border border-green-200 text-green-700' 
+                  : 'bg-red-50 border border-red-200 text-red-700'
+              }`}>
                 {error}
               </div>
             )}

@@ -10,17 +10,32 @@ const InstantLetter = ({ user, subscription }) => {
   const MAX_RECIPIENTS = 3 // Maximum number of recipients allowed
   
   useEffect(() => {
-    if (!user) {
+    // Check localStorage if user prop is not set
+    let currentUser = user
+    if (!currentUser) {
+      const storedUser = localStorage.getItem('laterme_user')
+      if (storedUser) {
+        try {
+          currentUser = JSON.parse(storedUser)
+        } catch (e) {
+          navigate('/login')
+          return
+        }
+      }
+    }
+    
+    if (!currentUser) {
       navigate('/login')
       return
     }
     
     // Check if email is verified
-    if (user.emailVerified === false || user.emailVerified === undefined) {
+    if (currentUser.emailVerified === false || currentUser.emailVerified === undefined) {
       navigate('/verify-email', { 
         state: { 
-          userData: user 
-        } 
+          userData: currentUser 
+        },
+        replace: true
       })
       return
     }
