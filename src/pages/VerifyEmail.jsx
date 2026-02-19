@@ -22,13 +22,31 @@ const VerifyEmail = ({ onLogin }) => {
   const hasInitializedRef = useRef(false)
   const isNavigatingRef = useRef(false)
   const lastPathnameRef = useRef('')
+  const initializationTimerRef = useRef(null)
 
   useEffect(() => {
+    // STRICT GUARD: If we already have userId set via state, don't run this effect again
+    // This prevents infinite loops when state updates cause re-renders
+    if (userId !== null && userId !== undefined && hasInitializedRef.current) {
+      return
+    }
+    
+    // Clear any pending timers
+    if (initializationTimerRef.current) {
+      clearTimeout(initializationTimerRef.current)
+      initializationTimerRef.current = null
+    }
+    
     // Reset initialization flag if pathname changed (user navigated to this page again)
     if (lastPathnameRef.current !== location.pathname) {
       hasInitializedRef.current = false
       isNavigatingRef.current = false
       lastPathnameRef.current = location.pathname
+      // Also reset userId state when pathname changes (new navigation)
+      if (location.pathname === '/verify-email') {
+        // Only reset if we're actually on verify-email page
+        // This handles the case where user navigates away and comes back
+      }
     }
     
     // Prevent re-running if already initialized or currently navigating
@@ -36,16 +54,20 @@ const VerifyEmail = ({ onLogin }) => {
       return
     }
     
-    // Get user data from location state or localStorage
+    // Get user data from location state FIRST (most reliable when coming from login/signup)
     let userData = location.state?.userData
     const emailWarning = location.state?.emailDeliveryWarning || false
     
-    // If not in state, try localStorage (this handles login redirects)
+    // If not in state, try localStorage (this handles direct navigation or page refresh)
     if (!userData || !userData.id) {
       try {
         const stored = localStorage.getItem('laterme_user')
         if (stored) {
-          userData = JSON.parse(stored)
+          const parsedData = JSON.parse(stored)
+          // Only use stored data if it has an ID
+          if (parsedData && parsedData.id) {
+            userData = parsedData
+          }
         }
       } catch (e) {
         console.error('Error parsing stored user data:', e)
@@ -55,12 +77,13 @@ const VerifyEmail = ({ onLogin }) => {
     // Check if user is already verified - if so, redirect to home
     if (userData && userData.emailVerified === true) {
       isNavigatingRef.current = true
+      hasInitializedRef.current = true
       navigate('/', { replace: true })
       return
     }
     
-    // If we have user data (even if incomplete), set it and show the page
-    // Don't redirect to signup immediately - give user a chance to verify
+    // If we have user data with ID, set it immediately and show the page
+    // This handles both location.state and localStorage cases
     if (userData && userData.id) {
       // Set user data immediately to prevent blank page
       setUserId(userData.id)
@@ -77,38 +100,50 @@ const VerifyEmail = ({ onLogin }) => {
           setError('')
         }, 8000)
       }
-      return
+      return // Exit early - we have user data, no need for timer
     }
     
-    // Only redirect to signup if we've waited and still have no user data
-    // Give it a small delay to allow localStorage to be populated
-    const redirectTimer = setTimeout(() => {
-      // Check one more time for user data
-      try {
-        const stored = localStorage.getItem('laterme_user')
-        if (stored) {
-          const finalUserData = JSON.parse(stored)
-          if (finalUserData && finalUserData.id) {
-            setUserId(finalUserData.id)
-            setUserEmail(finalUserData.email || 'your email')
-            hasInitializedRef.current = true
-            return
+    // Only if we have NO user data at all, wait a bit and check again
+    // This handles edge cases where localStorage might be populated asynchronously
+    if (!userData || !userData.id) {
+      initializationTimerRef.current = setTimeout(() => {
+        // Check one more time for user data in localStorage
+        try {
+          const stored = localStorage.getItem('laterme_user')
+          if (stored) {
+            const finalUserData = JSON.parse(stored)
+            if (finalUserData && finalUserData.id) {
+              setUserId(finalUserData.id)
+              setUserEmail(finalUserData.email || 'your email')
+              hasInitializedRef.current = true
+              initializationTimerRef.current = null
+              return
+            }
           }
+        } catch (e) {
+          console.error('Error parsing stored user data:', e)
         }
-      } catch (e) {
-        console.error('Error parsing stored user data:', e)
-      }
-      
-      // If still no user data after delay, redirect to signup
-      if (!hasInitializedRef.current) {
-        console.warn('No user data found after delay, redirecting to signup')
-        isNavigatingRef.current = true
-        navigate('/signup', { replace: true })
-      }
-    }, 500) // Wait 500ms for localStorage to be populated
+        
+        // If still no user data after delay, redirect to signup
+        // But only if we haven't already initialized (safety check)
+        if (!hasInitializedRef.current && !isNavigatingRef.current) {
+          console.warn('No user data found after delay, redirecting to signup')
+          isNavigatingRef.current = true
+          hasInitializedRef.current = true
+          navigate('/signup', { replace: true })
+        }
+        initializationTimerRef.current = null
+      }, 1000) // Increased to 1 second to give more time
+    }
     
-    return () => clearTimeout(redirectTimer)
-  }, [location.pathname, navigate]) // Only depend on pathname and navigate - state is read once on mount
+    return () => {
+      if (initializationTimerRef.current) {
+        clearTimeout(initializationTimerRef.current)
+        initializationTimerRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]) // Only depend on pathname - navigate is stable, userId check is in guard
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) {
@@ -339,7 +374,7 @@ const VerifyEmail = ({ onLogin }) => {
     
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [navigate])
+  }, []) // navigate is stable, doesn't need to be in deps
 
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">

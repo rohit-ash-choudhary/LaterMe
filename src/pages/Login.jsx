@@ -191,18 +191,45 @@ const Login = ({ onLogin, user }) => {
   }
 
   const handleGoToVerifyEmail = () => {
+    // Ensure userData is in localStorage before navigating
     if (unverifiedUserData && unverifiedUserData.id) {
+      // Make sure it's stored in localStorage
+      localStorage.setItem('laterme_user', JSON.stringify(unverifiedUserData))
+      // Update parent state
+      onLogin(unverifiedUserData)
+      
       hasNavigatedRef.current = true
+      // Use replace: false to allow back navigation if needed
       navigate('/verify-email', {
         state: {
           userData: unverifiedUserData
         },
-        replace: true
+        replace: false
       })
     } else {
-      // If no user ID, still try to navigate - VerifyEmail will handle it
+      // If no user ID, try to get from localStorage
+      try {
+        const stored = localStorage.getItem('laterme_user')
+        if (stored) {
+          const storedData = JSON.parse(stored)
+          if (storedData && storedData.id) {
+            hasNavigatedRef.current = true
+            navigate('/verify-email', {
+              state: {
+                userData: storedData
+              },
+              replace: false
+            })
+            return
+          }
+        }
+      } catch (e) {
+        console.error('Error reading stored user data:', e)
+      }
+      
+      // If still no user data, navigate anyway - VerifyEmail will handle it
       hasNavigatedRef.current = true
-      navigate('/verify-email', { replace: true })
+      navigate('/verify-email', { replace: false })
     }
   }
 
