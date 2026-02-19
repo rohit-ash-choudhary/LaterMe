@@ -16,6 +16,7 @@ const VerifyEmail = ({ onLogin }) => {
   useEffect(() => {
     // Get user data from location state or localStorage
     let userData = location.state?.userData
+    const emailWarning = location.state?.emailDeliveryWarning || false
     
     // If not in state, try localStorage
     if (!userData || !userData.id) {
@@ -44,6 +45,14 @@ const VerifyEmail = ({ onLogin }) => {
     setUserId(userData.id)
     // Ensure email is set - use stored email or show placeholder
     setUserEmail(userData.email || 'your email')
+    
+    // Show warning if email delivery failed during signup
+    if (emailWarning) {
+      setError('⚠️ Email delivery failed, but OTP was generated. Please use "Resend OTP" to try again, or check your email spam folder.')
+      setTimeout(() => {
+        setError('')
+      }, 8000)
+    }
   }, [location, navigate])
 
   const handleOtpChange = (index, value) => {
@@ -172,7 +181,15 @@ const VerifyEmail = ({ onLogin }) => {
       
       // Check if email delivery failed
       if (!emailSent || status === 'warning') {
-        setError(message || 'OTP was generated, but email delivery failed. The OTP is still valid and saved in the system.')
+        const warningMsg = message || 'OTP was generated, but email delivery failed. The OTP is still valid and saved in the system. You can still enter it below.'
+        setError('⚠️ ' + warningMsg)
+        // Keep the error visible longer for important warnings
+        setTimeout(() => {
+          // Don't clear if it's still the same warning
+          if (error.startsWith('⚠️')) {
+            setError('')
+          }
+        }, 10000)
       } else {
         // Show success message without alert (better UX)
         const successMsg = message || 'OTP has been resent to your email!'

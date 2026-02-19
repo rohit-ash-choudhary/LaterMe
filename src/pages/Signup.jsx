@@ -92,7 +92,15 @@ const Signup = ({ onLogin, user }) => {
       onLogin(userData)
       
       // Redirect to OTP verification page with userData
-      navigate('/verify-email', { state: { userData }, replace: true })
+      // Note: Even if email sending fails, OTP is saved in database
+      // User can use "Resend OTP" feature if email wasn't received
+      navigate('/verify-email', { 
+        state: { 
+          userData,
+          emailDeliveryWarning: response.emailSent === false || response.status === 'warning'
+        }, 
+        replace: true 
+      })
     } catch (error) {
       // Handle API errors
       console.error('Registration error:', error)
@@ -112,6 +120,27 @@ const Signup = ({ onLogin, user }) => {
         }
       } else if (error.message.includes('VALIDATION_ERROR') || error.message.includes('Validation failed')) {
         setError('Please check your input and try again')
+      } else if (error.message.includes('Mail server') || error.message.includes('SMTP') || error.message.includes('email delivery')) {
+        // Email sending failed but user might still be created
+        setError('Account created, but email delivery failed. Please use "Resend OTP" on the verification page.')
+        // Still try to navigate to verification page if we have user data
+        try {
+          const storedUser = localStorage.getItem('laterme_user')
+          if (storedUser) {
+            const userData = JSON.parse(storedUser)
+            setTimeout(() => {
+              navigate('/verify-email', { 
+                state: { 
+                  userData,
+                  emailDeliveryWarning: true
+                }, 
+                replace: true 
+              })
+            }, 2000)
+          }
+        } catch (e) {
+          // If navigation fails, user can try again
+        }
       } else {
         setError(error.message || 'Registration failed. Please try again.')
       }
