@@ -26,8 +26,10 @@ const VerifyEmail = ({ onLogin }) => {
 
   // Initialize user data on mount and when pathname changes
   useEffect(() => {
-    // If already initialized for this pathname, don't run again
-    if (hasInitializedRef.current && lastPathnameRef.current === location.pathname) {
+    const currentPathname = location.pathname
+    
+    // STRICT GUARD: If already initialized for this exact pathname, don't run
+    if (hasInitializedRef.current && lastPathnameRef.current === currentPathname) {
       return
     }
     
@@ -36,55 +38,42 @@ const VerifyEmail = ({ onLogin }) => {
       return
     }
     
-    // Clear any pending timers
+    // Clear any pending timers immediately
     if (initializationTimerRef.current) {
       clearTimeout(initializationTimerRef.current)
       initializationTimerRef.current = null
     }
     
-    // Reset flags if pathname changed (new navigation to this page)
-    if (lastPathnameRef.current !== location.pathname) {
+    // Reset flags ONLY if pathname actually changed
+    if (lastPathnameRef.current !== currentPathname) {
       hasInitializedRef.current = false
       isNavigatingRef.current = false
-      lastPathnameRef.current = location.pathname
+      lastPathnameRef.current = currentPathname
     }
     
     // Get user data from location state FIRST (most reliable when coming from login/signup)
-    let userData = location.state?.userData
+    const stateUserData = location.state?.userData
     const emailWarning = location.state?.emailDeliveryWarning || false
     
-    // If not in state, try localStorage (this handles direct navigation or page refresh)
-    if (!userData || !userData.id) {
-      try {
-        const stored = localStorage.getItem('laterme_user')
-        if (stored) {
-          const parsedData = JSON.parse(stored)
-          // Only use stored data if it has an ID
-          if (parsedData && parsedData.id) {
-            userData = parsedData
-          }
-        }
-      } catch (e) {
-        console.error('Error parsing stored user data:', e)
+    // Helper function to process user data
+    const processUserData = (userData) => {
+      if (!userData || !userData.id) {
+        return false
       }
-    }
-    
-    // Check if user is already verified - if so, redirect to home
-    if (userData && userData.emailVerified === true) {
-      isNavigatingRef.current = true
-      hasInitializedRef.current = true
-      navigate('/', { replace: true })
-      return
-    }
-    
-    // If we have user data with ID, set it immediately and show the page
-    if (userData && userData.id) {
-      // Mark as initialized BEFORE setting state to prevent re-runs
+      
+      // Mark as initialized BEFORE any state updates to prevent re-runs
       hasInitializedRef.current = true
       
-      // Set user data - this will cause a re-render but effect won't run again due to guard
-      setUserId(userData.id)
-      setUserEmail(userData.email || 'your email')
+      // Check if user is already verified - if so, redirect to home
+      if (userData.emailVerified === true) {
+        isNavigatingRef.current = true
+        navigate('/', { replace: true })
+        return true
+      }
+      
+      // Set user data - use functional updates to avoid dependency issues
+      setUserId(prev => prev || userData.id)
+      setUserEmail(prev => prev || (userData.email || 'your email'))
       
       // Show warning if email delivery failed during signup
       if (emailWarning) {
@@ -93,45 +82,67 @@ const VerifyEmail = ({ onLogin }) => {
           setError('')
         }, 8000)
       }
-      return // Exit early - we have user data, no need for timer
+      
+      return true
     }
     
-    // Only if we have NO user data at all, wait a bit and check again
-    if (!userData || !userData.id) {
-      initializationTimerRef.current = setTimeout(() => {
-        // Double-check we haven't initialized in the meantime
-        if (hasInitializedRef.current || isNavigatingRef.current) {
-          initializationTimerRef.current = null
-          return
-        }
-        
-        // Check one more time for user data in localStorage
-        try {
-          const stored = localStorage.getItem('laterme_user')
-          if (stored) {
-            const finalUserData = JSON.parse(stored)
-            if (finalUserData && finalUserData.id) {
-              hasInitializedRef.current = true
-              setUserId(finalUserData.id)
-              setUserEmail(finalUserData.email || 'your email')
-              initializationTimerRef.current = null
-              return
-            }
-          }
-        } catch (e) {
-          console.error('Error parsing stored user data:', e)
-        }
-        
-        // If still no user data after delay, redirect to signup
-        if (!hasInitializedRef.current && !isNavigatingRef.current) {
-          console.warn('No user data found after delay, redirecting to signup')
-          isNavigatingRef.current = true
-          hasInitializedRef.current = true
-          navigate('/signup', { replace: true })
-        }
-        initializationTimerRef.current = null
-      }, 1000)
+    // Try to process user data from location state
+    if (stateUserData && stateUserData.id) {
+      if (processUserData(stateUserData)) {
+        return // Successfully processed, exit
+      }
     }
+    
+    // If not in state, try localStorage (this handles direct navigation or page refresh)
+    try {
+      const stored = localStorage.getItem('laterme_user')
+      if (stored) {
+        const parsedData = JSON.parse(stored)
+        if (parsedData && parsedData.id) {
+          if (processUserData(parsedData)) {
+            return // Successfully processed, exit
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing stored user data:', e)
+    }
+    
+    // If we get here, we have no user data - wait a bit and check again
+    
+    initializationTimerRef.current = setTimeout(() => {
+      // Double-check we haven't initialized in the meantime
+      if (hasInitializedRef.current || isNavigatingRef.current) {
+        initializationTimerRef.current = null
+        return
+      }
+      
+      // Check one more time for user data in localStorage
+      try {
+        const stored = localStorage.getItem('laterme_user')
+        if (stored) {
+          const finalUserData = JSON.parse(stored)
+          if (finalUserData && finalUserData.id) {
+            hasInitializedRef.current = true
+            setUserId(prev => prev || finalUserData.id)
+            setUserEmail(prev => prev || (finalUserData.email || 'your email'))
+            initializationTimerRef.current = null
+            return
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing stored user data:', e)
+      }
+      
+      // If still no user data after delay, redirect to signup
+      if (!hasInitializedRef.current && !isNavigatingRef.current) {
+        console.warn('No user data found after delay, redirecting to signup')
+        isNavigatingRef.current = true
+        hasInitializedRef.current = true
+        navigate('/signup', { replace: true })
+      }
+      initializationTimerRef.current = null
+    }, 1000)
     
     return () => {
       if (initializationTimerRef.current) {
@@ -139,7 +150,7 @@ const VerifyEmail = ({ onLogin }) => {
         initializationTimerRef.current = null
       }
     }
-  }, [location.pathname, navigate]) // Only depend on pathname and navigate (both are stable)
+  }, [location.pathname, navigate]) // Only depend on pathname and navigate
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) {
