@@ -117,18 +117,27 @@ export const apiRequest = async (endpoint, options = {}) => {
         errorData = { message: text || `API Error: ${response.status} ${response.statusText}` }
       }
       
+      // Create error object with additional info for better handling
+      const error = new Error(errorData.message || errorData.error?.message || `API Error: ${response.status} ${response.statusText}`)
+      error.status = response.status
+      error.statusText = response.statusText
+      error.data = errorData
+      
+      // Preserve user data if backend returns it in error (e.g., for unverified email)
+      if (errorData.user || errorData.userData) {
+        error.userData = errorData.user || errorData.userData
+      }
+      
       // Handle validation errors (object with field names as keys or errors object)
       if (errorData.errors && typeof errorData.errors === 'object') {
         const validationErrors = Object.values(errorData.errors).join(', ')
-        throw new Error(validationErrors || errorData.message || `API Error: ${response.status} ${response.statusText}`)
-      }
-      
-      if (typeof errorData === 'object' && !errorData.message && Object.keys(errorData).length > 0) {
+        error.message = validationErrors || error.message
+      } else if (typeof errorData === 'object' && !errorData.message && Object.keys(errorData).length > 0) {
         const validationErrors = Object.values(errorData).join(', ')
-        throw new Error(validationErrors || `API Error: ${response.status} ${response.statusText}`)
+        error.message = validationErrors || error.message
       }
       
-      throw new Error(errorData.message || errorData.error?.message || `API Error: ${response.status} ${response.statusText}`)
+      throw error
     }
     
     // Handle both JSON and plain text responses

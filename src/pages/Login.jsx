@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Lock, LogIn } from 'lucide-react'
+import { Mail, Lock, LogIn, CheckCircle, RefreshCw } from 'lucide-react'
 import { authAPI } from '../services/api'
 
 const Login = ({ onLogin, user }) => {
@@ -9,6 +9,9 @@ const Login = ({ onLogin, user }) => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showVerificationOptions, setShowVerificationOptions] = useState(false)
+  const [unverifiedUserData, setUnverifiedUserData] = useState(null)
+  const [resendingOtp, setResendingOtp] = useState(false)
   const hasNavigatedRef = useRef(false) // Track if we've already navigated
   const isSubmittingRef = useRef(false) // Track if we're currently submitting
 
@@ -117,6 +120,61 @@ const Login = ({ onLogin, user }) => {
       
       // Handle API errors
       console.error('Login error:', error)
+      
+      // Check if error is about email not being verified
+      const errorMessage = error.message || ''
+      const errorData = error.data || {}
+      const isEmailNotVerified = errorMessage.toLowerCase().includes('email not verified') || 
+                                  errorMessage.toLowerCase().includes('email is not verified') ||
+                                  errorMessage.toLowerCase().includes('verify your email') ||
+                                  errorMessage.toLowerCase().includes('email verification') ||
+                                  errorMessage.toLowerCase().includes('please verify') ||
+                                  (error.status === 403 && errorMessage.toLowerCase().includes('verified'))
+      
+      if (isEmailNotVerified) {
+        // Try to get user data from error response
+        let userData = null
+        
+        // Check if error has user data in it (backend might return this)
+        if (error.userData) {
+          userData = error.userData
+        } else if (errorData.user || errorData.userData) {
+          userData = errorData.user || errorData.userData
+        } else if (errorData.id) {
+          // Backend might return user ID and other fields in error response
+          userData = {
+            id: errorData.id,
+            name: errorData.name,
+            email: errorData.email || trimmedEmail,
+            emailVerified: false
+          }
+        }
+        
+        // If we have user data with ID, store it and show verification options
+        if (userData && userData.id) {
+          // Store user data with unverified status
+          const userDataToStore = {
+            ...userData,
+            emailVerified: false,
+            email: userData.email || trimmedEmail
+          }
+          localStorage.setItem('laterme_user', JSON.stringify(userDataToStore))
+          onLogin(userDataToStore)
+          setUnverifiedUserData(userDataToStore)
+          setShowVerificationOptions(true)
+          setError('Please verify your email address. Check your inbox for the verification code.')
+          setLoading(false)
+          return
+        } else {
+          // If we don't have user ID, show a message with verification option
+          setError('Please verify your email address. Check your inbox for the verification code.')
+          setShowVerificationOptions(true)
+          // Store email for potential resend
+          setUnverifiedUserData({ email: trimmedEmail })
+        }
+      }
+      
+      // Handle other errors
       if (error.message.includes('Cannot connect to backend') || error.message.includes('Failed to fetch')) {
         const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
         setError(`Cannot connect to backend server at ${backendUrl}. The service may be sleeping (free tier) or unavailable. Please try again.`)
@@ -129,6 +187,53 @@ const Login = ({ onLogin, user }) => {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGoToVerifyEmail = () => {
+    if (unverifiedUserData && unverifiedUserData.id) {
+      hasNavigatedRef.current = true
+      navigate('/verify-email', {
+        state: {
+          userData: unverifiedUserData
+        },
+        replace: true
+      })
+    } else {
+      // If no user ID, still try to navigate - VerifyEmail will handle it
+      hasNavigatedRef.current = true
+      navigate('/verify-email', { replace: true })
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (!unverifiedUserData || !unverifiedUserData.id) {
+      setError('Unable to resend OTP. Please try logging in again or go to verify email page.')
+      return
+    }
+
+    setResendingOtp(true)
+    setError('')
+
+    try {
+      const response = await authAPI.resendOtp(unverifiedUserData.id)
+      const message = response?.message || 'OTP has been resent to your email!'
+      const emailSent = response?.emailSent !== false
+      const status = response?.status || 'success'
+      
+      if (!emailSent || status === 'warning') {
+        setError('⚠️ ' + (response?.message || 'OTP was generated, but email delivery failed. Please try again or check your email spam folder.'))
+      } else {
+        setError('✓ ' + message)
+        setTimeout(() => {
+          setError('')
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error)
+      setError(error.message || 'Failed to resend OTP. Please try again.')
+    } finally {
+      setResendingOtp(false)
     }
   }
 
@@ -154,8 +259,42 @@ const Login = ({ onLogin, user }) => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
+              <div className={`px-4 py-3 rounded-lg text-sm ${
+                error.startsWith('✓') 
+                  ? 'bg-green-50 border border-green-200 text-green-700' 
+                  : 'bg-red-50 border border-red-200 text-red-700'
+              }`}>
+                <div className="flex items-start">
+                  <div className="flex-1">
+                    {error}
+                  </div>
+                </div>
+                
+                {/* Show verification options if email verification error */}
+                {showVerificationOptions && (
+                  <div className="mt-3 pt-3 border-t border-current/20 space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleGoToVerifyEmail}
+                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium"
+                    >
+                      <CheckCircle size={16} />
+                      <span>Go to Verify Email Page</span>
+                    </button>
+                    
+                    {unverifiedUserData?.id && (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendingOtp}
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <RefreshCw size={16} className={resendingOtp ? 'animate-spin' : ''} />
+                        <span>{resendingOtp ? 'Sending...' : 'Resend OTP'}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
