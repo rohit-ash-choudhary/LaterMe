@@ -14,29 +14,68 @@ The backend is unable to send OTP emails to users during registration. The SMTP 
 
 ### Error Details
 
+**Primary Error:**
 ```
 java.net.SocketTimeoutException: Connect timed out
 Couldn't connect to host, port: smtp.gmail.com, 587; timeout 15000
 ```
 
-**Stack Trace Location:**
+**Full Exception Chain:**
+```
+org.springframework.mail.MailSendException: Mail server connection failed. 
+Failed messages: org.eclipse.angus.mail.util.MailConnectException: 
+Couldn't connect to host, port: smtp.gmail.com, 587; timeout 15000;
+  nested exception is: java.net.SocketTimeoutException: Connect timed out
+```
+
+**Key Stack Trace Points:**
 - `EmailServiceImpl.sendHtmlEmail()` - Line 122
 - `OtpServiceImpl.sendOtpEmail()` - Line 106
 - `UserServiceImpl.createUser()` - Line 75
+- `UserController.creatUser()` - Line 36
+
+**Root Cause:**
+```
+Caused by: java.net.SocketTimeoutException: Connect timed out
+	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(Unknown Source)
+	at java.base/sun.nio.ch.NioSocketImpl.connect(Unknown Source)
+	at java.base/java.net.SocksSocketImpl.connect(Unknown Source)
+	at java.base/java.net.Socket.connect(Unknown Source)
+	at org.eclipse.angus.mail.util.WriteTimeoutSocket.connect(WriteTimeoutSocket.java:118)
+	at org.eclipse.angus.mail.util.SocketFetcher.createSocket(SocketFetcher.java:366)
+	at org.eclipse.angus.mail.util.SocketFetcher.getSocket(SocketFetcher.java:243)
+	at org.eclipse.angus.mail.smtp.SMTPTransport.openServer(SMTPTransport.java:2193)
+```
+
+**Warning Messages:**
+```
+⚠️  WARNING: Failed to send OTP email to [email]: Mail server connection failed. 
+Please check your network connection and firewall settings. 
+The SMTP ports (465/587) may be blocked.
+
+OTP generated and email sent successfully for user: [email]
+Unexpected exception while sending email: Mail server connection failed.
+```
 
 ### Impact
 
 - ✅ OTP codes are being generated successfully
-- ❌ Emails are not being delivered to users
+- ✅ User accounts are being created in database
+- ❌ Emails are not being delivered to users (connection timeout)
 - ❌ Users cannot complete email verification
-- ❌ New user registration flow is blocked
+- ❌ New user registration flow is partially blocked
+- ⚠️  Warning messages appear but registration continues (OTP still saved)
 
 ### Environment
 
 - **Backend:** Production (Render.com)
-- **Profile:** `production`
+- **Profile:** `production` (active)
+- **Spring Boot Version:** 3.5.10
+- **Java Version:** 17.0.18
 - **SMTP Server:** smtp.gmail.com:587
 - **Timeout:** 15000ms (15 seconds)
+- **Mail Library:** Eclipse Angus Mail (Jakarta Mail)
+- **Deployment:** Docker container on Render.com
 
 ### Possible Causes
 
@@ -88,11 +127,19 @@ Couldn't connect to host, port: smtp.gmail.com, 587; timeout 15000
 
 ### Next Steps
 
-- [ ] Investigate Render.com network restrictions
-- [ ] Test SMTP connection from Render environment
-- [ ] Consider migrating to SendGrid/Mailgun
-- [ ] Add better error handling and logging
-- [ ] Implement email sending retry mechanism
+- [ ] **URGENT:** Investigate Render.com network restrictions for SMTP ports
+- [ ] Test SMTP connection from Render environment using telnet/netcat
+- [ ] **RECOMMENDED:** Migrate to SendGrid/Mailgun/AWS SES (better for cloud)
+- [ ] Add better error handling and logging for email failures
+- [ ] Implement email sending retry mechanism with exponential backoff
+- [ ] Add fallback: Store OTP in database even if email fails (already done)
+- [ ] Consider async email sending to prevent blocking registration
+- [ ] Add health check endpoint for email service connectivity
+- [ ] Document workaround: Users can use resend OTP feature
+
+### Workaround
+
+Users can still register and the OTP is saved in the database. They can use the "Resend OTP" feature, which might work if the connection issue is temporary. However, this is not a reliable solution for production.
 
 ---
 
