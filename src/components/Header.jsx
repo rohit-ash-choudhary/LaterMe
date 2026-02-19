@@ -55,14 +55,16 @@ const Header = ({ user, subscription, onLogout }) => {
       <div className="chrome-header-container">
         {/* Top Bar - Chrome Style */}
         <div className="chrome-top-bar">
-          {/* Logo - Minimal Chrome Style */}
+          {/* Logo - Modern Next-Gen Style */}
           <Link to="/" className="chrome-logo group">
-            <div className="flex flex-col">
-              <div className="chrome-logo-text">
-                LaterMe
-              </div>
-              <div className="chrome-tagline">
-                What You'll Be Tomorrow
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col">
+                <div className="chrome-logo-text">
+                  LaterMe
+                </div>
+                <div className="chrome-tagline">
+                  What You'll Be Tomorrow
+                </div>
               </div>
             </div>
           </Link>
@@ -77,7 +79,7 @@ const Header = ({ user, subscription, onLogout }) => {
               }}
               className={`chrome-tab ${isActive('/write-later') ? 'chrome-tab-active' : ''}`}
             >
-              <Mail size={16} className="chrome-tab-icon" />
+              <Mail size={18} className="chrome-tab-icon" />
               <span className="chrome-tab-text">Write Later</span>
               {isActive('/write-later') && <div className="chrome-tab-indicator" />}
             </Link>
@@ -86,7 +88,7 @@ const Header = ({ user, subscription, onLogout }) => {
               onClick={() => setShowMobileMenu(false)}
               className={`chrome-tab ${isActive('/public-letters') ? 'chrome-tab-active' : ''}`}
             >
-              <Globe size={16} className="chrome-tab-icon" />
+              <Globe size={18} className="chrome-tab-icon" />
               <span className="chrome-tab-text">Public Letters</span>
               {isActive('/public-letters') && <div className="chrome-tab-indicator" />}
             </Link>
@@ -98,7 +100,7 @@ const Header = ({ user, subscription, onLogout }) => {
               }}
               className={`chrome-tab ${isActive('/write-to-someone') ? 'chrome-tab-active' : ''}`}
             >
-              <Send size={16} className="chrome-tab-icon" />
+              <Send size={18} className="chrome-tab-icon" />
               <span className="chrome-tab-text">To Someone</span>
               {isActive('/write-to-someone') && <div className="chrome-tab-indicator" />}
             </Link>
