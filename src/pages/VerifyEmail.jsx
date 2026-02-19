@@ -57,7 +57,7 @@ const VerifyEmail = ({ onLogin }) => {
     
     // Helper function to process user data
     const processUserData = (userData) => {
-      if (!userData || !userData.id) {
+      if (!userData) {
         return false
       }
       
@@ -71,9 +71,15 @@ const VerifyEmail = ({ onLogin }) => {
         return true
       }
       
-      // Set user data - use functional updates to avoid dependency issues
-      setUserId(prev => prev || userData.id)
-      setUserEmail(prev => prev || (userData.email || 'your email'))
+      // If we have user ID, set it
+      if (userData.id) {
+        setUserId(prev => prev || userData.id)
+      }
+      
+      // Always set email if available (even if we don't have user ID)
+      if (userData.email) {
+        setUserEmail(prev => prev || userData.email)
+      }
       
       // Show warning if email delivery failed during signup
       if (emailWarning) {
@@ -83,11 +89,12 @@ const VerifyEmail = ({ onLogin }) => {
         }, 8000)
       }
       
-      return true
+      // Return true if we have at least email (even without ID, we can show the page)
+      return !!userData.email
     }
     
     // Try to process user data from location state
-    if (stateUserData && stateUserData.id) {
+    if (stateUserData) {
       if (processUserData(stateUserData)) {
         return // Successfully processed, exit
       }
@@ -98,7 +105,7 @@ const VerifyEmail = ({ onLogin }) => {
       const stored = localStorage.getItem('laterme_user')
       if (stored) {
         const parsedData = JSON.parse(stored)
-        if (parsedData && parsedData.id) {
+        if (parsedData) {
           if (processUserData(parsedData)) {
             return // Successfully processed, exit
           }
@@ -122,24 +129,33 @@ const VerifyEmail = ({ onLogin }) => {
         const stored = localStorage.getItem('laterme_user')
         if (stored) {
           const finalUserData = JSON.parse(stored)
-          if (finalUserData && finalUserData.id) {
-            hasInitializedRef.current = true
-            setUserId(prev => prev || finalUserData.id)
-            setUserEmail(prev => prev || (finalUserData.email || 'your email'))
-            initializationTimerRef.current = null
-            return
+          if (finalUserData) {
+            // Process even if we only have email
+            if (finalUserData.email) {
+              hasInitializedRef.current = true
+              if (finalUserData.id) {
+                setUserId(prev => prev || finalUserData.id)
+              }
+              setUserEmail(prev => prev || finalUserData.email)
+              initializationTimerRef.current = null
+              return
+            }
           }
         }
       } catch (e) {
         console.error('Error parsing stored user data:', e)
       }
       
-      // If still no user data after delay, redirect to signup
-      if (!hasInitializedRef.current && !isNavigatingRef.current) {
+      // Only redirect to signup if we have NO email at all
+      // If we have email but no ID, we'll show the page with a message
+      if (!hasInitializedRef.current && !isNavigatingRef.current && !userEmail) {
         console.warn('No user data found after delay, redirecting to signup')
         isNavigatingRef.current = true
         hasInitializedRef.current = true
         navigate('/signup', { replace: true })
+      } else {
+        // We have email but no ID - mark as initialized so we show the page
+        hasInitializedRef.current = true
       }
       initializationTimerRef.current = null
     }, 1000)
@@ -202,7 +218,11 @@ const VerifyEmail = ({ onLogin }) => {
     }
 
     if (!userId) {
-      setError('User session expired. Please sign up again.')
+      setError('User session expired. Please log in again to verify your email.')
+      // Navigate to login after showing error
+      setTimeout(() => {
+        navigate('/login', { replace: true })
+      }, 2000)
       return
     }
 
@@ -354,7 +374,7 @@ const VerifyEmail = ({ onLogin }) => {
   }
 
   // NOW we can do early returns - all hooks are above this point
-  if (!userId && isInitializing) {
+  if (!userId && !userEmail && isInitializing) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="text-center">
@@ -365,18 +385,115 @@ const VerifyEmail = ({ onLogin }) => {
     )
   }
   
-  // If still no userId after initialization, show error and redirect
-  if (!userId) {
+  // If we have email but no userId, show the page with a message
+  // This handles the case where user logged in after 2 days but backend didn't return user ID
+  if (!userId && userEmail) {
+    return (
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full">
+          <div className="modern-card rounded-2xl p-8">
+            <div className="text-center mb-8">
+              <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Mail className="text-primary" size={32} />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Verify Your Email</h1>
+              <p className="text-gray-600 mb-4">
+                We've sent a 6-digit code to
+              </p>
+              <p className="text-gray-900 font-medium mb-6">{userEmail}</p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> To resend the OTP, please log in again. Check your email inbox (and spam folder) for the verification code.
+                </p>
+              </div>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className={`px-4 py-3 rounded-lg text-sm ${
+                  error.startsWith('✓') 
+                    ? 'bg-green-50 border border-green-200 text-green-700' 
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}>
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+                  Enter the verification code
+                </label>
+                <div className="flex justify-center gap-2">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                      autoFocus={index === 0}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otp.join('').length !== 6}
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="animate-spin" size={20} />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={20} />
+                    <span>Verify Email</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center space-y-4">
+              <p className="text-gray-600 text-sm">
+                Didn't receive the code?
+              </p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate('/login', { replace: true })}
+                  className="w-full px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors text-sm font-medium"
+                >
+                  Go to Login to Resend OTP
+                </button>
+                <p className="text-xs text-gray-500">
+                  Logging in again will resend the verification code to {userEmail}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  
+  // If we have neither userId nor email after initialization, show error and redirect
+  if (!userId && !userEmail) {
     return (
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full text-center">
           <div className="modern-card rounded-2xl p-8">
-            <p className="text-red-600 mb-4">Unable to load verification page. Redirecting...</p>
+            <p className="text-red-600 mb-4">Unable to load verification page. Please log in again.</p>
             <button
-              onClick={() => navigate('/signup', { replace: true })}
+              onClick={() => navigate('/login', { replace: true })}
               className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-purple-600 transition-colors"
             >
-              Go to Signup
+              Go to Login
             </button>
           </div>
         </div>

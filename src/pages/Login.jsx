@@ -167,10 +167,16 @@ const Login = ({ onLogin, user }) => {
           return
         } else {
           // If we don't have user ID, show a message with verification option
-          setError('Please verify your email address. Check your inbox for the verification code.')
+          // Store email in localStorage so VerifyEmail can access it
+          const emailOnlyData = {
+            email: trimmedEmail,
+            emailVerified: false
+          }
+          localStorage.setItem('laterme_user', JSON.stringify(emailOnlyData))
+          onLogin(emailOnlyData)
+          setUnverifiedUserData(emailOnlyData)
           setShowVerificationOptions(true)
-          // Store email for potential resend
-          setUnverifiedUserData({ email: trimmedEmail })
+          setError('Please verify your email address. Check your inbox for the verification code.')
         }
       }
       
@@ -192,8 +198,8 @@ const Login = ({ onLogin, user }) => {
 
   const handleGoToVerifyEmail = () => {
     // Ensure userData is in localStorage before navigating
-    if (unverifiedUserData && unverifiedUserData.id) {
-      // Make sure it's stored in localStorage
+    if (unverifiedUserData) {
+      // Make sure it's stored in localStorage (even if only email)
       localStorage.setItem('laterme_user', JSON.stringify(unverifiedUserData))
       // Update parent state
       onLogin(unverifiedUserData)
@@ -207,12 +213,12 @@ const Login = ({ onLogin, user }) => {
         replace: false
       })
     } else {
-      // If no user ID, try to get from localStorage
+      // If no user data, try to get from localStorage
       try {
         const stored = localStorage.getItem('laterme_user')
         if (stored) {
           const storedData = JSON.parse(stored)
-          if (storedData && storedData.id) {
+          if (storedData) {
             hasNavigatedRef.current = true
             navigate('/verify-email', {
               state: {
