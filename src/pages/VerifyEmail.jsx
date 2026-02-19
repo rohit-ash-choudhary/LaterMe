@@ -24,10 +24,15 @@ const VerifyEmail = ({ onLogin }) => {
   const lastPathnameRef = useRef('')
   const initializationTimerRef = useRef(null)
 
+  // Initialize user data on mount and when pathname changes
   useEffect(() => {
-    // STRICT GUARD: If we already have userId set via state, don't run this effect again
-    // This prevents infinite loops when state updates cause re-renders
-    if (userId !== null && userId !== undefined && hasInitializedRef.current) {
+    // If already initialized for this pathname, don't run again
+    if (hasInitializedRef.current && lastPathnameRef.current === location.pathname) {
+      return
+    }
+    
+    // If currently navigating, don't run
+    if (isNavigatingRef.current) {
       return
     }
     
@@ -37,21 +42,11 @@ const VerifyEmail = ({ onLogin }) => {
       initializationTimerRef.current = null
     }
     
-    // Reset initialization flag if pathname changed (user navigated to this page again)
+    // Reset flags if pathname changed (new navigation to this page)
     if (lastPathnameRef.current !== location.pathname) {
       hasInitializedRef.current = false
       isNavigatingRef.current = false
       lastPathnameRef.current = location.pathname
-      // Also reset userId state when pathname changes (new navigation)
-      if (location.pathname === '/verify-email') {
-        // Only reset if we're actually on verify-email page
-        // This handles the case where user navigates away and comes back
-      }
-    }
-    
-    // Prevent re-running if already initialized or currently navigating
-    if (hasInitializedRef.current || isNavigatingRef.current) {
-      return
     }
     
     // Get user data from location state FIRST (most reliable when coming from login/signup)
@@ -83,15 +78,13 @@ const VerifyEmail = ({ onLogin }) => {
     }
     
     // If we have user data with ID, set it immediately and show the page
-    // This handles both location.state and localStorage cases
     if (userData && userData.id) {
-      // Set user data immediately to prevent blank page
-      setUserId(userData.id)
-      // Ensure email is set - use stored email or show placeholder
-      setUserEmail(userData.email || 'your email')
-      
-      // Mark as initialized to prevent re-running
+      // Mark as initialized BEFORE setting state to prevent re-runs
       hasInitializedRef.current = true
+      
+      // Set user data - this will cause a re-render but effect won't run again due to guard
+      setUserId(userData.id)
+      setUserEmail(userData.email || 'your email')
       
       // Show warning if email delivery failed during signup
       if (emailWarning) {
@@ -104,18 +97,23 @@ const VerifyEmail = ({ onLogin }) => {
     }
     
     // Only if we have NO user data at all, wait a bit and check again
-    // This handles edge cases where localStorage might be populated asynchronously
     if (!userData || !userData.id) {
       initializationTimerRef.current = setTimeout(() => {
+        // Double-check we haven't initialized in the meantime
+        if (hasInitializedRef.current || isNavigatingRef.current) {
+          initializationTimerRef.current = null
+          return
+        }
+        
         // Check one more time for user data in localStorage
         try {
           const stored = localStorage.getItem('laterme_user')
           if (stored) {
             const finalUserData = JSON.parse(stored)
             if (finalUserData && finalUserData.id) {
+              hasInitializedRef.current = true
               setUserId(finalUserData.id)
               setUserEmail(finalUserData.email || 'your email')
-              hasInitializedRef.current = true
               initializationTimerRef.current = null
               return
             }
@@ -125,7 +123,6 @@ const VerifyEmail = ({ onLogin }) => {
         }
         
         // If still no user data after delay, redirect to signup
-        // But only if we haven't already initialized (safety check)
         if (!hasInitializedRef.current && !isNavigatingRef.current) {
           console.warn('No user data found after delay, redirecting to signup')
           isNavigatingRef.current = true
@@ -133,7 +130,7 @@ const VerifyEmail = ({ onLogin }) => {
           navigate('/signup', { replace: true })
         }
         initializationTimerRef.current = null
-      }, 1000) // Increased to 1 second to give more time
+      }, 1000)
     }
     
     return () => {
@@ -142,8 +139,7 @@ const VerifyEmail = ({ onLogin }) => {
         initializationTimerRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]) // Only depend on pathname - navigate is stable, userId check is in guard
+  }, [location.pathname, navigate]) // Only depend on pathname and navigate (both are stable)
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) {
