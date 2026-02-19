@@ -257,7 +257,7 @@ export const lettersToSomeoneElseAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest('/letters-to-someone-else', {
+    return apiRequest('/v1/letters-to-someone-else', {
       method: 'POST',
       headers: {
         'userId': userId.toString(),
@@ -271,7 +271,7 @@ export const lettersToSomeoneElseAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest('/letters-to-someone-else', {
+    return apiRequest('/v1/letters-to-someone-else', {
       headers: {
         'userId': userId.toString(),
       },

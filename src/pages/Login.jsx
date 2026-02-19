@@ -41,9 +41,10 @@ const Login = ({ onLogin, user }) => {
       return
     }
 
-    // Email validation
+    // Email validation and trimming
+    const trimmedEmail = email.trim().toLowerCase()
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(trimmedEmail)) {
       setError('Please enter a valid email address')
       setLoading(false)
       return
@@ -51,10 +52,10 @@ const Login = ({ onLogin, user }) => {
 
     try {
       // Call backend API to login
-      // Note: Backend expects 'passHash' field name (not 'password')
+      // Note: Backend DTO expects 'passHash' field name (same as registration)
       const response = await authAPI.login({
-        email,
-        passHash: password  // Backend expects 'passHash' instead of 'password'
+        email: trimmedEmail,  // Use trimmed and lowercased email
+        passHash: password  // Backend expects 'passHash' field name
       })
       
       // Backend returns LoginResponceDTO directly: { id, name, email }
