@@ -12,6 +12,9 @@ import Signup from './pages/Signup'
 import VerifyEmail from './pages/VerifyEmail'
 import Pricing from './pages/Pricing'
 import ManageAccount from './pages/ManageAccount'
+import Privacy from './pages/Privacy'
+import About from './pages/About'
+import Contact from './pages/Contact'
 // Subscription utilities removed - will be handled by backend API
 
 function App() {
@@ -90,6 +93,9 @@ function App() {
                 <ManageAccount user={user} onLogout={handleLogout} onSubscriptionUpdate={handleSubscriptionUpdate} />
               </ProtectedRoute>
             } />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
           </Routes>
         </main>
         <Footer />
