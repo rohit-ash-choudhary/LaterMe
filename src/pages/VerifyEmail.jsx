@@ -269,7 +269,7 @@ const VerifyEmail = ({ onLogin }) => {
   }
 
   const handleResendOtp = async () => {
-    // Get userId from state or localStorage
+    // Get userId and email from state or localStorage
     let currentUserId = userId
     let currentUserEmail = userEmail
     
@@ -290,20 +290,11 @@ const VerifyEmail = ({ onLogin }) => {
       }
     }
     
-    // If we still don't have userId, try to get it from email by calling login
-    // But first, check if we have email
-    if (!currentUserId && currentUserEmail) {
+    // If we don't have email, we can't resend
+    if (!currentUserEmail) {
       setError('Unable to resend OTP. Please log in again to receive a new OTP.')
       setTimeout(() => {
         navigate('/login', { replace: false })
-      }, 2000)
-      return
-    }
-    
-    if (!currentUserId) {
-      setError('User session expired. Please log in again.')
-      setTimeout(() => {
-        navigate('/login', { replace: true })
       }, 2000)
       return
     }
@@ -312,7 +303,14 @@ const VerifyEmail = ({ onLogin }) => {
     setError('')
 
     try {
-      const response = await authAPI.resendOtp(currentUserId)
+      // Try with userId first, if not available, use email
+      let response
+      if (currentUserId) {
+        response = await authAPI.resendOtp(currentUserId)
+      } else {
+        response = await authAPI.resendOtpByEmail(currentUserEmail)
+      }
+      
       setError('')
       
       // Handle response object
@@ -339,7 +337,7 @@ const VerifyEmail = ({ onLogin }) => {
       } else {
         // Show success message
         const successMsg = message || 'OTP has been resent to your email!'
-        setError('✓ ' + successMsg + ' (Valid for 10 minutes)')
+        setError('✓ ' + successMsg + ' (Valid for 5 minutes)')
         setTimeout(() => {
           setError('')
         }, 4000)

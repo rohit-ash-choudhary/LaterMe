@@ -47,10 +47,32 @@ export const authAPI = {
 
   resendOtp: (userId) => {
     if (!userId) {
-      throw new Error('User not logged in')
+      throw new Error('User ID is required')
     }
     return apiRequest('/v1/auth/resend-otp', {
       method: 'POST',
+      headers: {
+        'userId': userId.toString(),
+      },
+    })
+  },
+
+  resendOtpByEmail: (email) => {
+    if (!email) {
+      throw new Error('Email is required')
+    }
+    return apiRequest(`/v1/auth/resend-otp?email=${encodeURIComponent(email)}`, {
+      method: 'POST',
+    })
+  },
+
+  deleteAccount: () => {
+    const userId = getUserId()
+    if (!userId) {
+      throw new Error('User not logged in')
+    }
+    return apiRequest('/v1/auth/account', {
+      method: 'DELETE',
       headers: {
         'userId': userId.toString(),
       },
@@ -173,14 +195,14 @@ export const publicLettersAPI = {
   getAll: (filter = 'latest', search = '') => {
     const userId = getUserId()
     const headers = userId ? { 'userId': userId.toString() } : {}
-    return apiRequest(`/public-letters?filter=${filter}&search=${encodeURIComponent(search)}`, {
+    return apiRequest(`/v1/public-letters?filter=${filter}&search=${encodeURIComponent(search)}`, {
       headers,
     }).then(response => response.letters || [])
   },
   
   getById: (letterId) => {
     const userId = getUserId()
-    return apiRequest(`/public-letters/${letterId}`, {
+    return apiRequest(`/v1/public-letters/${letterId}`, {
       headers: userId ? { 'userId': userId.toString() } : {},
     })
   },
@@ -190,7 +212,7 @@ export const publicLettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/public-letters/${letterId}/like`, {
+    return apiRequest(`/v1/public-letters/${letterId}/like`, {
       method: 'POST',
       headers: {
         'userId': userId.toString(),
@@ -203,7 +225,7 @@ export const publicLettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/public-letters/${letterId}/like`, {
+    return apiRequest(`/v1/public-letters/${letterId}/like`, {
       method: 'DELETE',
       headers: {
         'userId': userId.toString(),
@@ -216,7 +238,7 @@ export const publicLettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/public-letters/${letterId}/save`, {
+    return apiRequest(`/v1/public-letters/${letterId}/save`, {
       method: 'POST',
       headers: {
         'userId': userId.toString(),
@@ -229,7 +251,7 @@ export const publicLettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest(`/public-letters/${letterId}/save`, {
+    return apiRequest(`/v1/public-letters/${letterId}/save`, {
       method: 'DELETE',
       headers: {
         'userId': userId.toString(),
@@ -242,7 +264,7 @@ export const publicLettersAPI = {
     if (!userId) {
       throw new Error('User not logged in')
     }
-    return apiRequest('/public-letters/saved', {
+    return apiRequest('/v1/public-letters/saved', {
       headers: {
         'userId': userId.toString(),
       },

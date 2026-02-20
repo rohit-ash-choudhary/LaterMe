@@ -20,9 +20,20 @@ const PublicLetters = ({ user }) => {
     loadSavedLetters()
   }, [filter, searchQuery])
 
+  // Auto-refresh public letters every 30 seconds to catch newly delivered letters
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadPublicLetters()
+    }, 30000) // Refresh every 30 seconds
+    
+    return () => clearInterval(interval)
+  }, [filter, searchQuery])
+
   const loadPublicLetters = async () => {
     try {
       const lettersData = await publicLettersAPI.getAll(filter, searchQuery)
+      console.log('Loaded public letters:', lettersData?.length || 0, 'letters')
+      
       // Transform backend response to match frontend format
       const transformedLetters = (lettersData || []).map(letter => ({
         id: letter.id || letter.letterId,
@@ -46,7 +57,10 @@ const PublicLetters = ({ user }) => {
       setLetters(transformedLetters)
     } catch (error) {
       console.error('Error loading public letters:', error)
-      setLetters([])
+      // Don't clear letters on error - keep existing ones
+      if (letters.length === 0) {
+        setLetters([])
+      }
     }
   }
 
@@ -79,14 +93,6 @@ const PublicLetters = ({ user }) => {
     }
   }
   
-  // Re-filter letters when component updates (to show newly available letters)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLetters(prevLetters => [...prevLetters]) // Trigger re-render to re-filter
-    }, 60000) // Check every minute
-    
-    return () => clearInterval(interval)
-  }, [])
 
   const handleLike = async (letterId) => {
     if (!user) {

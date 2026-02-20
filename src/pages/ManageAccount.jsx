@@ -321,15 +321,36 @@ const ManageAccount = ({ user, onLogout, onSubscriptionUpdate }) => {
 
         <div className="space-y-3">
           <button
-            onClick={() => {
-              if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                // In a real app, this would delete the account
-                alert('Account deletion feature will be implemented with backend integration.')
+            onClick={async () => {
+              if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently deleted.')) {
+                return
+              }
+              
+              if (!window.confirm('This is your last chance. Are you absolutely sure you want to delete your account?')) {
+                return
+              }
+
+              setLoading(true)
+              try {
+                await authAPI.deleteAccount()
+                setMessage({ type: 'success', text: 'Account deleted successfully. Redirecting...' })
+                // Clear local storage
+                localStorage.removeItem('laterme_user')
+                // Logout and redirect
+                setTimeout(() => {
+                  onLogout()
+                  navigate('/', { replace: true })
+                }, 2000)
+              } catch (error) {
+                console.error('Delete account error:', error)
+                setMessage({ type: 'error', text: error.message || 'Failed to delete account. Please try again.' })
+                setLoading(false)
               }
             }}
-            className="px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-medium"
+            disabled={loading}
+            className="px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Delete Account
+            {loading ? 'Deleting...' : 'Delete Account'}
           </button>
         </div>
       </div>
